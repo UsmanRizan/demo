@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id    String @id @default(cuid())
+  phone String @unique
+
+  firstName String?
+  lastName  String?
+  email     String?
+
+  role UserRole @default(PLAYER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations Location[]
+  bookings  Booking[]
+  address   UserAddress?
+}
+
+model Sport {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  facilities Facility[]
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  address     String
+  city        String
+  description String?
+  phone       String?
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner          User           @relation(fields: [ownerId], references: [id])
+  facilities     Facility[]
+  availabilities Availability[]
+
+  @@index([ownerId])
+  @@index([city])
+}
+
+model Facility {
+  id          String   @id @default(cuid())
+  locationId  String
+  sportId     String
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  location Location  @relation(fields: [locationId], references: [id])
+  sport    Sport     @relation(fields: [sportId], references: [id])
+  bookings Booking[]
+
+  @@index([locationId])
+  @@index([sportId])
+}
+
+model Availability {
+  id         String   @id @default(cuid())
+  locationId String
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, dayOfWeek])
+  @@index([locationId])
+}
+
+model Booking {
+  id         String   @id @default(cuid())
+  playerId   String
+  facilityId String
+  startAt    DateTime
+  endAt      DateTime
+  totalPrice Decimal  @db.Decimal(10, 2)
+
+  status BookingStatus @default(PENDING)
+
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentId     String?
+  paymentMethod String?
+  orderId       String?       @unique
+  expiresAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  player   User     @relation(fields: [playerId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([playerId])
+  @@index([facilityId])
+  @@index([startAt, endAt])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([expiresAt])
+}
+
+enum UserRole {
+  PLAYER
+  OWNER
+  ADMIN
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  CHARGEBACK
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([expiresAt])
+}
+
+model UserAddress {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  country      String  @default("Sri Lanka")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
