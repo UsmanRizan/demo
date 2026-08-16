@@ -7,7 +7,9 @@ type UserRole = "PLAYER" | "OWNER" | "ADMIN";
 type User = {
   id: string;
   phone: string;
-  name: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
   role: UserRole;
   createdAt: string;
 };
@@ -137,7 +139,11 @@ export default function AdminUsersPage() {
                     <tr key={user.id} className="border-b last:border-0">
                       <td className="px-6 py-4">{user.phone}</td>
 
-                      <td className="px-6 py-4">{user.name || "—"}</td>
+                      <td className="px-6 py-4">
+                        {user.firstName || user.lastName
+                          ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
+                          : "—"}
+                      </td>
 
                       <td className="px-6 py-4">
                         <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">

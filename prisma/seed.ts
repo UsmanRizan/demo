@@ -19,22 +19,38 @@ const prisma = new PrismaClient({
 async function main() {
   console.log("Seeding database...");
 
+  /*
+   * ------------------------------------------------------
+   * ADMIN
+   * ------------------------------------------------------
+   */
+
   const admin = await prisma.user.upsert({
     where: {
-      phone: "+94743922176",
+      phone: "94743922176",
     },
+
     update: {
       role: "ADMIN",
-      name: "System Admin",
+      firstName: "System",
+      lastName: "Admin",
     },
+
     create: {
-      phone: "+94743922176",
-      name: "System Admin",
+      phone: "94743922176",
+      firstName: "System",
+      lastName: "Admin",
       role: "ADMIN",
     },
   });
 
   console.log("Admin created:", admin.phone);
+
+  /*
+   * ------------------------------------------------------
+   * SPORTS
+   * ------------------------------------------------------
+   */
 
   const sports = [
     {
@@ -64,24 +80,29 @@ async function main() {
       where: {
         slug: sport.slug,
       },
+
       update: {
         name: sport.name,
         isActive: true,
       },
+
       create: {
         name: sport.name,
         slug: sport.slug,
+        isActive: true,
       },
     });
   }
 
   console.log("Sports seeded:", sports.length);
+
   console.log("Seeding complete.");
 }
 
 main()
   .catch((error) => {
-    console.error(error);
+    console.error("Seed failed:", error);
+
     process.exit(1);
   })
   .finally(async () => {

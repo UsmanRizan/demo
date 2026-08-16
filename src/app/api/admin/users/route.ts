@@ -7,17 +7,27 @@ export async function GET() {
   const currentUser = await getCurrentUser();
 
   if (!currentUser || currentUser.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+      },
+      {
+        status: 403,
+      },
+    );
   }
 
   const users = await prisma.user.findMany({
     orderBy: {
       createdAt: "desc",
     },
+
     select: {
       id: true,
       phone: true,
-      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
       role: true,
       createdAt: true,
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type BookingInfo = {
@@ -10,7 +10,7 @@ type BookingInfo = {
   endTime: string;
 };
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const requestStarted = useRef(false);
 
@@ -172,5 +172,22 @@ export default function CheckoutPage() {
         </a>
       </div>
     </main>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-semibold">Preparing payment...</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Checking availability and creating your booking.
+          </p>
+        </div>
+      </main>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

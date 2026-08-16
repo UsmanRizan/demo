@@ -13,21 +13,40 @@ export async function PATCH(request: Request, context: RouteContext) {
   const currentUser = await getCurrentUser();
 
   if (!currentUser || currentUser.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+      },
+      {
+        status: 403,
+      },
+    );
   }
 
   try {
     const { id } = await context.params;
+
     const body = await request.json();
 
     if (!["PLAYER", "OWNER"].includes(body.role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Invalid role",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     if (id === currentUser.id) {
       return NextResponse.json(
-        { error: "You cannot change your own role" },
-        { status: 400 },
+        {
+          error: "You cannot change your own role",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -35,13 +54,17 @@ export async function PATCH(request: Request, context: RouteContext) {
       where: {
         id,
       },
+
       data: {
         role: body.role,
       },
+
       select: {
         id: true,
         phone: true,
-        name: true,
+        firstName: true,
+        lastName: true,
+        email: true,
         role: true,
       },
     });
@@ -54,8 +77,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     console.error("Role update error:", error);
 
     return NextResponse.json(
-      { error: "Failed to update user role" },
-      { status: 500 },
+      {
+        error: "Failed to update user role",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
