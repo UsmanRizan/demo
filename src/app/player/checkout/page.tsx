@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type BookingInfo = {
   facilityId: string;
@@ -11,6 +11,7 @@ type BookingInfo = {
 };
 
 function CheckoutContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const requestStarted = useRef(false);
 
@@ -23,6 +24,10 @@ function CheckoutContent() {
 
   const [loading, setLoading] = useState(true);
 
+  const [bookingId, setBookingId] = useState<string | null>(null);
+
+  const [cancelError, setCancelError] = useState("");
+
   useEffect(() => {
     if (requestStarted.current) {
       return;
@@ -30,14 +35,6 @@ function CheckoutContent() {
 
     requestStarted.current = true;
 
-    async function createPayment() {
-      // existing code
-    }
-
-    createPayment();
-  }, [searchParams]);
-
-  useEffect(() => {
     async function createPayment() {
       const booking: BookingInfo = {
         facilityId: searchParams.get("facilityId") || "",
@@ -75,6 +72,8 @@ function CheckoutContent() {
           setError(data.error || "Unable to start payment");
           return;
         }
+
+        setBookingId(data.bookingId || null);
 
         setPayment(data.payment);
       } catch {
@@ -164,12 +163,47 @@ function CheckoutContent() {
           Continue to PayHere
         </button>
 
-        <a
-          href="/player/find-booking"
-          className="mt-4 block text-center text-sm text-gray-500"
+        <button
+          type="button"
+          onClick={async () => {
+            setCancelError("");
+
+            if (bookingId) {
+              try {
+                const response = await fetch("/api/bookings/cancel", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ bookingId }),
+                });
+
+                if (!response.ok) {
+                  const data = await response.json();
+
+                  setCancelError(data.error || "Failed to cancel booking.");
+
+                  console.error("Cancel booking failed:", data);
+
+                  return;
+                }
+              } catch (err) {
+                console.error("Cancel booking error:", err);
+
+                setCancelError("Network error. Please try again.");
+
+                return;
+              }
+            }
+
+            router.push("/player/find-booking");
+          }}
+          className="mt-4 block w-full text-center text-sm text-gray-500"
         >
           Cancel
-        </a>
+        </button>
+
+        {cancelError && (
+          <p className="mt-3 text-sm text-red-600">{cancelError}</p>
+        )}
       </div>
     </main>
   );

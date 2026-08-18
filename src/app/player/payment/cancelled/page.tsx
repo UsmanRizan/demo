@@ -1,12 +1,37 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-export default async function PaymentCancelledPage() {
+type PageProps = {
+  searchParams: Promise<{
+    bookingId?: string;
+  }>;
+};
+
+export default async function PaymentCancelledPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
+  }
+
+  const params = await searchParams;
+
+  if (params.bookingId) {
+    await prisma.booking.updateMany({
+      where: {
+        id: params.bookingId,
+        playerId: user.id,
+        status: "PENDING",
+        paymentStatus: "PENDING",
+      },
+      data: {
+        status: "CANCELLED",
+        paymentStatus: "CANCELLED",
+        expiresAt: null,
+      },
+    });
   }
 
   return (
