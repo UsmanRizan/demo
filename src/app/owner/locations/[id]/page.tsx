@@ -77,6 +77,13 @@ export default async function LocationPage({ params }: PageProps) {
             >
               Add Facility
             </a>
+
+            <a
+              href={`/owner/bookings?locationId=${location.id}`}
+              className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium"
+            >
+              View Bookings
+            </a>
           </div>
         </div>
 

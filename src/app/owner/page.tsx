@@ -52,6 +52,13 @@ export default async function OwnerDashboard() {
           >
             Add Location
           </a>
+
+          <a
+            href="/owner/bookings"
+            className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium"
+          >
+            My Bookings
+          </a>
         </div>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
