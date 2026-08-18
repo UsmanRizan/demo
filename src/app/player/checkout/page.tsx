@@ -12,17 +12,24 @@ type BookingInfo = {
 
 type Step = "phone" | "otp" | "profile" | "payment";
 
+type AuthTab = "password" | "otp";
+
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestStarted = useRef(false);
 
   const [step, setStep] = useState<Step>("phone");
+  const [authTab, setAuthTab] = useState<AuthTab>("password");
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpMessage, setOtpMessage] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+
+  const [password, setPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [profile, setProfile] = useState({
     firstName: "",
@@ -207,6 +214,37 @@ function CheckoutContent() {
     }
   }
 
+  async function handlePasswordLogin(event: React.FormEvent) {
+    event.preventDefault();
+
+    setPasswordLoading(true);
+    setPasswordMessage("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPasswordMessage(data.error || "Login failed");
+        setPasswordLoading(false);
+        return;
+      }
+
+      // Session cookie is set. Try payment.
+      tryPayment();
+    } catch {
+      setPasswordMessage("Something went wrong.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
 
@@ -318,39 +356,121 @@ function CheckoutContent() {
         <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
           <h1 className="text-2xl font-bold">Sign in to continue</h1>
 
-          <p className="mt-2 text-gray-600">
-            Enter your phone number to verify and proceed with payment.
-          </p>
-
-          <form onSubmit={sendOtp} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Phone number
-              </label>
-
-              <input
-                type="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="+94771234567"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                required
-              />
-            </div>
-
+          {/* Tabs */}
+          <div className="mt-4 flex border-b">
             <button
-              type="submit"
-              disabled={otpLoading}
-              className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
+              type="button"
+              onClick={() => setAuthTab("password")}
+              className={`flex-1 pb-2 text-sm font-medium ${
+                authTab === "password"
+                  ? "border-b-2 border-black text-black"
+                  : "text-gray-500"
+              }`}
             >
-              {otpLoading ? "Sending..." : "Send OTP"}
+              Password
             </button>
-          </form>
+            <button
+              type="button"
+              onClick={() => setAuthTab("otp")}
+              className={`flex-1 pb-2 text-sm font-medium ${
+                authTab === "otp"
+                  ? "border-b-2 border-black text-black"
+                  : "text-gray-500"
+              }`}
+            >
+              OTP
+            </button>
+          </div>
 
-          {otpMessage && (
-            <p className="mt-4 rounded-lg bg-gray-100 p-3 text-sm text-gray-700">
-              {otpMessage}
-            </p>
+          {authTab === "password" ? (
+            <>
+              <p className="mt-4 text-gray-600">
+                Enter your phone number and password to sign in.
+              </p>
+
+              <form onSubmit={handlePasswordLogin} className="mt-6 space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Phone number
+                  </label>
+
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="+94771234567"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Password
+                  </label>
+
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
+                >
+                  {passwordLoading ? "Signing in..." : "Sign in"}
+                </button>
+              </form>
+
+              {passwordMessage && (
+                <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {passwordMessage}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="mt-4 text-gray-600">
+                Enter your phone number to verify and proceed with payment.
+              </p>
+
+              <form onSubmit={sendOtp} className="mt-6 space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Phone number
+                  </label>
+
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="+94771234567"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={otpLoading}
+                  className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
+                >
+                  {otpLoading ? "Sending..." : "Send OTP"}
+                </button>
+              </form>
+
+              {otpMessage && (
+                <p className="mt-4 rounded-lg bg-gray-100 p-3 text-sm text-gray-700">
+                  {otpMessage}
+                </p>
+              )}
+            </>
           )}
 
           {error && (

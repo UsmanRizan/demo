@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import SetPasswordPrompt from "@/components/SetPasswordPrompt";
 
 export default async function PlayerPage() {
   const user = await getCurrentUser();
@@ -40,6 +41,8 @@ export default async function PlayerPage() {
           </a>
         </div>
       </div>
+
+      <SetPasswordPrompt />
     </main>
   );
 }

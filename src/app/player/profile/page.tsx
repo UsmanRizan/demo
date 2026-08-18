@@ -19,11 +19,26 @@ export default function PlayerProfilePage() {
 
   const [country, setCountry] = useState("Sri Lanka");
 
+  const [hasPassword, setHasPassword] = useState(false);
+
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
 
   const [message, setMessage] = useState("");
+
+  // Password change state
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+
+  const [newPassword, setNewPassword] = useState("");
+
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [passwordMessage, setPasswordMessage] = useState("");
+
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -54,6 +69,8 @@ export default function PlayerProfilePage() {
         setCity(profile.address?.city || "");
 
         setCountry(profile.address?.country || "Sri Lanka");
+
+        setHasPassword(profile.hasPassword || false);
       } catch {
         setMessage("Failed to load profile");
       } finally {
@@ -99,6 +116,53 @@ export default function PlayerProfilePage() {
       setMessage("Failed to save profile");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleChangePassword(event: FormEvent) {
+    event.preventDefault();
+    setPasswordLoading(true);
+    setPasswordMessage("");
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage("New passwords do not match");
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordMessage("Password must be at least 8 characters");
+      setPasswordLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPasswordMessage(data.error || "Failed to change password");
+        setPasswordLoading(false);
+        return;
+      }
+
+      setPasswordMessage("Password changed successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordForm(false);
+    } catch {
+      setPasswordMessage("Something went wrong");
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
@@ -240,6 +304,119 @@ export default function PlayerProfilePage() {
               {saving ? "Saving..." : "Save Profile"}
             </button>
           </form>
+
+          {/* Password Section */}
+          <div className="mt-10 border-t pt-8">
+            <h2 className="text-xl font-bold">Password</h2>
+
+            {hasPassword ? (
+              <>
+                {!showPasswordForm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordForm(true)}
+                    className="mt-4 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium"
+                  >
+                    Change password
+                  </button>
+                ) : (
+                  <form
+                    onSubmit={handleChangePassword}
+                    className="mt-4 space-y-4"
+                  >
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">
+                        Current password
+                      </label>
+
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(event) =>
+                          setCurrentPassword(event.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">
+                        New password
+                      </label>
+
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) =>
+                          setNewPassword(event.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">
+                        Confirm new password
+                      </label>
+
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) =>
+                          setConfirmPassword(event.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        required
+                      />
+                    </div>
+
+                    {passwordMessage && (
+                      <div
+                        className={`rounded-lg p-3 text-sm ${
+                          passwordMessage.includes("success")
+                            ? "bg-green-50 text-green-700"
+                            : "bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {passwordMessage}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <button
+                        type="submit"
+                        disabled={passwordLoading}
+                        className="flex-1 rounded-lg bg-black px-4 py-3 font-medium text-white disabled:opacity-50"
+                      >
+                        {passwordLoading ? "Saving..." : "Update password"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPasswordForm(false);
+                          setPasswordMessage("");
+                          setCurrentPassword("");
+                          setNewPassword("");
+                          setConfirmPassword("");
+                        }}
+                        className="rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
+            ) : (
+              <p className="mt-4 text-sm text-gray-600">
+                You haven&apos;t set a password yet. Use OTP to sign in, or
+                set one now from the login page.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </main>

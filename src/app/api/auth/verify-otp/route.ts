@@ -101,10 +101,13 @@ export async function POST(request: Request) {
       },
     });
 
+    const hasPassword = !!user.passwordHash;
+
     const sessionToken = await createSession({
       userId: user.id,
       phone: user.phone,
       role: user.role,
+      hasPassword,
     });
 
     const response = NextResponse.json({
@@ -113,6 +116,7 @@ export async function POST(request: Request) {
         id: user.id,
         phone: user.phone,
         role: user.role,
+        hasPassword,
       },
     });
 

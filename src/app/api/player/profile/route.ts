@@ -64,6 +64,8 @@ export async function GET() {
 
         email: user.email ?? "",
 
+        hasPassword: !!user.passwordHash,
+
         address: user.address
           ? {
               id: user.address.id,

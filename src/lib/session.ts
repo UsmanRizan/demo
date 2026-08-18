@@ -12,6 +12,7 @@ export type SessionPayload = {
   userId: string;
   phone: string;
   role: "PLAYER" | "OWNER" | "ADMIN";
+  hasPassword: boolean;
 };
 
 export async function createSession(payload: SessionPayload): Promise<string> {
@@ -32,6 +33,7 @@ export async function verifySession(
       userId: payload.userId as string,
       phone: payload.phone as string,
       role: payload.role as SessionPayload["role"],
+      hasPassword: (payload.hasPassword as boolean) ?? false,
     };
   } catch {
     return null;
