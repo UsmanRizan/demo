@@ -1,15 +1,12 @@
-export default function HomePage() {
+﻿import { getCurrentUser } from "@/lib/auth";
+import Header from "@/components/Header";
+
+export default async function HomePage() {
+  const user = await getCurrentUser();
+
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold">BookMyPlay</h1>
-
-          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white">
-            Sign In
-          </button>
-        </div>
-      </header>
+      <Header user={user} />
 
       <section className="mx-auto max-w-7xl px-6 py-20">
         <div className="max-w-3xl">
@@ -27,13 +24,12 @@ export default function HomePage() {
           </p>
 
           <div className="mt-8 flex gap-4">
-            <button className="rounded-lg bg-black px-6 py-3 font-medium text-white">
+            <a
+              href="/player/find-booking"
+              className="rounded-lg bg-black px-6 py-3 font-medium text-white"
+            >
               Find a Booking
-            </button>
-
-            <button className="rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-900">
-              Become an Owner
-            </button>
+            </a>
           </div>
         </div>
       </section>

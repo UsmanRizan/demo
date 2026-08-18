@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
 import { calculatePlayerPrice } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 
@@ -32,6 +31,7 @@ function timeToMinutes(time: string) {
 
 function minutesToTime(minutes: number) {
   const hours = Math.floor(minutes / 60);
+
   const mins = minutes % 60;
 
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
@@ -89,19 +89,6 @@ function isValidDate(date: string) {
 }
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (user.role !== "PLAYER") {
-    return NextResponse.json(
-      { error: "Only players can search for bookings" },
-      { status: 403 },
-    );
-  }
-
   const { searchParams } = new URL(request.url);
 
   const sportId = searchParams.get("sportId");

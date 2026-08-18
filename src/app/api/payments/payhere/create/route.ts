@@ -365,8 +365,6 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      * 6. Cancel expired pending payment holds
      * -------------------------------------------------------
-     *
-     * This is why expiresAt must exist in the database.
      */
 
     const now = new Date();
@@ -513,11 +511,6 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      * 10. Reuse existing pending booking
      * -------------------------------------------------------
-     *
-     * Important for:
-     * - React development double calls
-     * - Browser refresh
-     * - Back/forward navigation
      */
 
     const existingPending = await prisma.booking.findFirst({
@@ -588,11 +581,6 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      * 11. Check conflicting bookings
      * -------------------------------------------------------
-     *
-     * CONFIRMED always blocks.
-     *
-     * PENDING only blocks while its payment hold
-     * has not expired.
      */
 
     const conflictingBooking = await prisma.booking.findFirst({
