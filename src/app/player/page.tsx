@@ -22,23 +22,30 @@ export default async function PlayerPage() {
         <p className="mt-2 text-gray-600">{user.phone}</p>
 
         <div className="mt-8 rounded-xl bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold">Quick Actions</h2>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <a
               href="/player/find-booking"
-              className="mt-5 inline-block rounded-lg bg-black px-5 py-3 text-sm font-medium text-white"
+              className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white"
             >
               Find a Booking
             </a>
-          </h2>
-          <p className="mt-2 text-gray-600">
-            Search for available sports facilities.
-          </p>
-          <a
-            href="/player/profile"
-            className="ml-3 mt-5 inline-block rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-medium"
-          >
-            My Profile
-          </a>
+
+            <a
+              href="/player/bookings"
+              className="rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-medium"
+            >
+              My Bookings
+            </a>
+
+            <a
+              href="/player/profile"
+              className="rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-medium"
+            >
+              My Profile
+            </a>
+          </div>
         </div>
       </div>
 
