@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { calculatePlayerPrice } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 
 const TIME_PERIODS = {
@@ -240,7 +241,7 @@ export async function GET(request: Request) {
       return {
         id: facility.id,
         name: facility.name,
-        price: Number(facility.price),
+        price: calculatePlayerPrice(Number(facility.price)),
         sport: facility.sport,
         location: facility.location,
         slots,

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { calculatePlayerPrice } from "@/lib/constants";
 
 type Sport = {
   id: string;
@@ -366,7 +367,9 @@ export default function FindBookingPage() {
 
   const totalHours = selectedSlotObjects.length;
 
-  const totalPrice = selectedFacility ? totalHours * selectedFacility.price : 0;
+  const totalPrice = selectedFacility
+    ? totalHours * calculatePlayerPrice(selectedFacility.price)
+    : 0;
 
   function proceedToPayment() {
     if (!selectedFacility || selectedSlotObjects.length === 0) {

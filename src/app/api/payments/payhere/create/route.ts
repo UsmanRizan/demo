@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 import { getCurrentUser } from "@/lib/auth";
+import { calculatePlayerPrice } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import {
   generatePayHereHash,
@@ -493,7 +494,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const pricePerHour = Number(facility.price);
+    const pricePerHour = calculatePlayerPrice(Number(facility.price));
 
     if (!Number.isFinite(pricePerHour) || pricePerHour <= 0) {
       return NextResponse.json(
