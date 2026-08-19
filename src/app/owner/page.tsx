@@ -1,4 +1,6 @@
 import { requireOwner } from "@/lib/owner";
+import Header from "@/components/Header";
+import SetPasswordPrompt from "@/components/SetPasswordPrompt";
 import { prisma } from "@/lib/prisma";
 
 export default async function OwnerDashboard() {
@@ -22,19 +24,7 @@ export default async function OwnerDashboard() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-2xl font-bold">BookMyPlay Owner</h1>
-
-            <p className="text-sm text-gray-500">{user.phone}</p>
-          </div>
-
-          <span className="rounded-full bg-black px-3 py-1 text-xs font-medium text-white">
-            OWNER
-          </span>
-        </div>
-      </header>
+      <Header user={user} />
 
       <div className="mx-auto max-w-7xl px-6 py-10">
         <div className="flex items-center justify-between">
@@ -107,6 +97,8 @@ export default async function OwnerDashboard() {
           )}
         </div>
       </div>
+
+      <SetPasswordPrompt />
     </main>
   );
 }

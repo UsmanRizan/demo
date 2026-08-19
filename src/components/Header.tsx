@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 type User = {
   phone: string;
@@ -15,20 +16,44 @@ type HeaderProps = {
 
 export default function Header({ user }: HeaderProps) {
   const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const displayName = user
     ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.phone
     : null;
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+  function clearSessionCookieClientSide() {
+    document.cookie =
+      "session=; path=/; max-age=0; SameSite=Lax; " +
+      (process.env.NODE_ENV === "production" ? "Secure; " : "");
+  }
 
-    router.refresh();
+  async function handleLogout() {
+    setIsLoggingOut(true);
+
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        router.push("/login");
+        return;
+      }
+
+      // API returned an error - fallback to client-side cookie clearing
+      clearSessionCookieClientSide();
+      router.push("/login");
+    } catch {
+      // Network error - fallback to client-side cookie clearing
+      clearSessionCookieClientSide();
+      router.push("/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
   }
 
   return (
@@ -41,9 +66,10 @@ export default function Header({ user }: HeaderProps) {
             <span className="text-sm text-gray-600">{displayName}</span>
             <button
               onClick={handleLogout}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium"
+              disabled={isLoggingOut}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
-              Logout
+              {isLoggingOut ? "Logging out..." : "Logout"}
             </button>
           </div>
         ) : (

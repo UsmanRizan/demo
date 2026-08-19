@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import Header from "@/components/Header";
 import SetPasswordPrompt from "@/components/SetPasswordPrompt";
 
 export default async function PlayerPage() {
@@ -16,6 +17,8 @@ export default async function PlayerPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-12">
+      <Header user={user} />
+
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Welcome to BookMyPlay</h1>
 

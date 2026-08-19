@@ -1,22 +1,13 @@
 import { requireAdmin } from "@/lib/admin";
+import Header from "@/components/Header";
+import SetPasswordPrompt from "@/components/SetPasswordPrompt";
 
 export default async function AdminDashboard() {
   const user = await requireAdmin();
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-2xl font-bold">BookMyPlay Admin</h1>
-            <p className="text-sm text-gray-500">{user.phone}</p>
-          </div>
-
-          <span className="rounded-full bg-black px-3 py-1 text-xs font-medium text-white">
-            ADMIN
-          </span>
-        </div>
-      </header>
+      <Header user={user} />
 
       <div className="mx-auto max-w-7xl px-6 py-10">
         <h2 className="text-3xl font-bold">Dashboard</h2>
@@ -58,6 +49,8 @@ export default async function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      <SetPasswordPrompt />
     </main>
   );
 }
