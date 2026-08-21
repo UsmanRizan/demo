@@ -2,14 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, "");
-}
+import { isValidEmail, normalizePhone } from "@/lib/utils";
 
 export async function GET() {
   try {

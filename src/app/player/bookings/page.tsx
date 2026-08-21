@@ -20,7 +20,7 @@ export default async function PlayerBookingsPage() {
     include: {
       facility: {
         include: {
-          sport: { select: { name: true } },
+          sports: { select: { name: true } },
           location: { select: { name: true, address: true, city: true } },
         },
       },
@@ -42,7 +42,7 @@ export default async function PlayerBookingsPage() {
       id: b.facility.id,
       name: b.facility.name,
       price: b.facility.price.toString(),
-      sport: b.facility.sport,
+      sports: b.facility.sports,
       location: b.facility.location,
     },
   }));

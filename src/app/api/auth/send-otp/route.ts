@@ -4,10 +4,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { generateOtp, hashOtp } from "@/lib/otp";
 import { sendSms } from "@/lib/textlk";
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "");
-}
+import { normalizePhone } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {

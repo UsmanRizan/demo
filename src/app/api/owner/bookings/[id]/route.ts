@@ -42,7 +42,7 @@ export async function PATCH(
     include: {
       facility: {
         include: {
-          sport: true,
+          sports: true,
           location: true,
         },
       },
@@ -72,7 +72,7 @@ export async function PATCH(
     include: {
       facility: {
         include: {
-          sport: { select: { id: true, name: true } },
+          sports: { select: { id: true, name: true } },
           location: { select: { id: true, name: true, address: true, city: true } },
         },
       },
@@ -97,7 +97,7 @@ export async function PATCH(
       id: updated.facility.id,
       name: updated.facility.name,
       price: updated.facility.price.toString(),
-      sport: updated.facility.sport,
+      sports: updated.facility.sports,
       location: updated.facility.location,
     },
   });

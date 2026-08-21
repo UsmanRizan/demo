@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import FacilityPriceEditor from "@/components/owner/FacilityPriceEditor";
+import FacilitySportsEditor from "@/components/owner/FacilitySportsEditor";
 
 type PageProps = {
   params: Promise<{
@@ -22,18 +24,24 @@ export default async function FacilityPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const facility = await prisma.facility.findFirst({
-    where: {
-      id,
-      location: {
-        ownerId: user.id,
+  const [facility, allSports] = await Promise.all([
+    prisma.facility.findFirst({
+      where: {
+        id,
+        location: {
+          ownerId: user.id,
+        },
       },
-    },
-    include: {
-      sport: true,
-      location: true,
-    },
-  });
+      include: {
+        sports: true,
+        location: true,
+      },
+    }),
+    prisma.sport.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!facility) {
     notFound();
@@ -53,7 +61,7 @@ export default async function FacilityPage({ params }: PageProps) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">
-                {facility.sport.name}
+                {facility.sports.map((s) => s.name).join(", ")}
               </p>
 
               <h1 className="mt-1 text-3xl font-bold">{facility.name}</h1>
@@ -70,13 +78,16 @@ export default async function FacilityPage({ params }: PageProps) {
             <p className="mt-6 text-gray-600">{facility.description}</p>
           )}
 
-          <div className="mt-8 rounded-lg bg-gray-50 p-6">
-            <p className="text-sm text-gray-500">Current price</p>
+          <FacilitySportsEditor
+            facilityId={facility.id}
+            initialSports={facility.sports}
+            allSports={allSports}
+          />
 
-            <p className="mt-1 text-3xl font-bold">
-              Rs. {facility.price.toString()}
-            </p>
-          </div>
+          <FacilityPriceEditor
+            facilityId={facility.id}
+            initialPrice={facility.price.toString()}
+          />
 
           <div className="mt-8 rounded-lg border border-dashed border-gray-300 p-6">
             <h2 className="text-lg font-semibold">Availability</h2>

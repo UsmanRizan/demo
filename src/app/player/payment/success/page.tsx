@@ -31,7 +31,7 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
       facility: {
         include: {
           location: true,
-          sport: true,
+          sports: true,
         },
       },
     },

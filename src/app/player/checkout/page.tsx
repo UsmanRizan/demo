@@ -3,16 +3,13 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-type BookingInfo = {
-  facilityId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-};
+import SignInForm from "@/components/auth/SignInForm";
+import OtpVerifyForm from "@/components/auth/OtpVerifyForm";
+import ProfileForm from "@/components/auth/ProfileForm";
+import type { ProfileData } from "@/components/auth/ProfileForm";
+import PaymentButton from "@/components/PaymentButton";
 
 type Step = "phone" | "otp" | "profile" | "payment";
-
-type AuthTab = "password" | "otp";
 
 function CheckoutContent() {
   const router = useRouter();
@@ -20,18 +17,16 @@ function CheckoutContent() {
   const requestStarted = useRef(false);
 
   const [step, setStep] = useState<Step>("phone");
-  const [authTab, setAuthTab] = useState<AuthTab>("password");
 
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otpPhone, setOtpPhone] = useState("");
+
   const [otpMessage, setOtpMessage] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
 
-  const [password, setPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<ProfileData>({
     firstName: "",
     lastName: "",
     email: "",
@@ -60,7 +55,7 @@ function CheckoutContent() {
   }
 
   async function tryPayment() {
-    const booking: BookingInfo = {
+    const booking = {
       facilityId: searchParams.get("facilityId") || "",
       date: searchParams.get("date") || "",
       startTime: searchParams.get("startTime") || "",
@@ -81,9 +76,7 @@ function CheckoutContent() {
     try {
       const response = await fetch("/api/payments/payhere/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(booking),
       });
 
@@ -150,73 +143,7 @@ function CheckoutContent() {
     }
   }
 
-  async function sendOtp(event: React.FormEvent) {
-    event.preventDefault();
-
-    setOtpLoading(true);
-    setOtpMessage("");
-    setError("");
-
-    try {
-      const response = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setOtpMessage(data.error || "Failed to send OTP");
-        return;
-      }
-
-      setOtpMessage("OTP sent. Enter the code below.");
-      setStep("otp");
-    } catch {
-      setOtpMessage("Something went wrong.");
-    } finally {
-      setOtpLoading(false);
-    }
-  }
-
-  async function verifyOtp(event: React.FormEvent) {
-    event.preventDefault();
-
-    setOtpLoading(true);
-    setOtpMessage("");
-    setError("");
-
-    try {
-      const response = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone, code: otp }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setOtpMessage(data.error || "Invalid OTP");
-        return;
-      }
-
-      // Session cookie is set by the API. Try payment.
-      tryPayment();
-    } catch {
-      setOtpMessage("Something went wrong.");
-    } finally {
-      setOtpLoading(false);
-    }
-  }
-
-  async function handlePasswordLogin(event: React.FormEvent) {
-    event.preventDefault();
-
+  async function handlePasswordLogin(phone: string, password: string) {
     setPasswordLoading(true);
     setPasswordMessage("");
     setError("");
@@ -236,12 +163,67 @@ function CheckoutContent() {
         return;
       }
 
-      // Session cookie is set. Try payment.
       tryPayment();
     } catch {
       setPasswordMessage("Something went wrong.");
     } finally {
       setPasswordLoading(false);
+    }
+  }
+
+  async function handleSendOtp(phone: string) {
+    setOtpPhone(phone);
+    setOtpLoading(true);
+    setOtpMessage("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setOtpMessage(data.error || "Failed to send OTP");
+        return;
+      }
+
+      setOtpMessage("OTP sent. Enter the code below.");
+      setStep("otp");
+    } catch {
+      setOtpMessage("Something went wrong.");
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp(phone: string, code: string) {
+    setOtpLoading(true);
+    setOtpMessage("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setOtpMessage(data.error || "Invalid OTP");
+        return;
+      }
+
+      tryPayment();
+    } catch {
+      setOtpMessage("Something went wrong.");
+    } finally {
+      setOtpLoading(false);
     }
   }
 
@@ -255,9 +237,7 @@ function CheckoutContent() {
     try {
       const response = await fetch("/api/player/profile", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
       });
 
@@ -285,32 +265,6 @@ function CheckoutContent() {
     requestStarted.current = true;
     tryPayment();
   }, [searchParams]);
-
-  function submitPayHere() {
-    if (!payment) {
-      return;
-    }
-
-    const form = document.createElement("form");
-
-    form.method = "POST";
-
-    form.action = payment.action;
-
-    Object.entries(payment.fields).forEach(([name, value]) => {
-      const input = document.createElement("input");
-
-      input.type = "hidden";
-      input.name = name;
-      input.value = value;
-
-      form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-
-    form.submit();
-  }
 
   async function cancelBooking() {
     setError("");
@@ -352,402 +306,75 @@ function CheckoutContent() {
 
   if (step === "phone") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-bold">Sign in to continue</h1>
-
-          {/* Tabs */}
-          <div className="mt-4 flex border-b">
-            <button
-              type="button"
-              onClick={() => setAuthTab("password")}
-              className={`flex-1 pb-2 text-sm font-medium ${
-                authTab === "password"
-                  ? "border-b-2 border-black text-black"
-                  : "text-gray-500"
-              }`}
-            >
-              Password
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuthTab("otp")}
-              className={`flex-1 pb-2 text-sm font-medium ${
-                authTab === "otp"
-                  ? "border-b-2 border-black text-black"
-                  : "text-gray-500"
-              }`}
-            >
-              OTP
-            </button>
-          </div>
-
-          {authTab === "password" ? (
-            <>
-              <p className="mt-4 text-gray-600">
-                Enter your phone number and password to sign in.
-              </p>
-
-              <form onSubmit={handlePasswordLogin} className="mt-6 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Phone number
-                  </label>
-
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+94771234567"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Password
-                  </label>
-
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
-                >
-                  {passwordLoading ? "Signing in..." : "Sign in"}
-                </button>
-              </form>
-
-              {passwordMessage && (
-                <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {passwordMessage}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="mt-4 text-gray-600">
-                Enter your phone number to verify and proceed with payment.
-              </p>
-
-              <form onSubmit={sendOtp} className="mt-6 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Phone number
-                  </label>
-
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+94771234567"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={otpLoading}
-                  className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
-                >
-                  {otpLoading ? "Sending..." : "Send OTP"}
-                </button>
-              </form>
-
-              {otpMessage && (
-                <p className="mt-4 rounded-lg bg-gray-100 p-3 text-sm text-gray-700">
-                  {otpMessage}
-                </p>
-              )}
-            </>
-          )}
-
-          {error && (
-            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <a
-            href="/player/find-booking"
-            className="mt-4 block text-center text-sm text-gray-500"
-          >
-            Cancel
-          </a>
-        </div>
-      </main>
+      <SignInForm
+        onPasswordLogin={handlePasswordLogin}
+        onSendOtp={handleSendOtp}
+        onCancel={() => router.push("/player/find-booking")}
+        passwordLoading={passwordLoading}
+        otpLoading={otpLoading}
+        passwordMessage={passwordMessage}
+        otpMessage={otpMessage}
+        error={error}
+      />
     );
   }
 
   if (step === "otp") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-bold">Verify OTP</h1>
-
-          <p className="mt-2 text-gray-600">
-            Enter the 6-digit code sent to {phone}.
-          </p>
-
-          <form onSubmit={verifyOtp} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium">OTP</label>
-
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={otp}
-                onChange={(event) => setOtp(event.target.value)}
-                placeholder="123456"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-center text-xl tracking-[0.5em] outline-none focus:border-black"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={otpLoading}
-              className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
-            >
-              {otpLoading ? "Verifying..." : "Verify OTP"}
-            </button>
-          </form>
-
-          {otpMessage && (
-            <p className="mt-4 rounded-lg bg-gray-100 p-3 text-sm text-gray-700">
-              {otpMessage}
-            </p>
-          )}
-
-          {error && (
-            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setStep("phone");
-              setOtp("");
-              setOtpMessage("");
-              setError("");
-            }}
-            className="mt-4 block w-full text-center text-sm text-gray-600"
-          >
-            Change phone number
-          </button>
-        </div>
-      </main>
+      <OtpVerifyForm
+        phone={otpPhone}
+        onVerify={handleVerifyOtp}
+        onChangePhone={() => {
+          setStep("phone");
+          setOtpMessage("");
+          setError("");
+        }}
+        loading={otpLoading}
+        message={otpMessage}
+        error={error}
+      />
     );
   }
 
   if (step === "profile") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-bold">Complete your profile</h1>
-
-          <p className="mt-2 text-gray-600">
-            These details will be used for your booking and payment.
-          </p>
-
-          {profileLoading && (
-            <p className="mt-4 text-sm text-gray-500">Loading profile...</p>
-          )}
-
-          <form onSubmit={saveProfile} className="mt-6 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  First name
-                </label>
-
-                <input
-                  type="text"
-                  value={profile.firstName}
-                  onChange={(event) =>
-                    updateProfile("firstName", event.target.value)
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Last name
-                </label>
-
-                <input
-                  type="text"
-                  value={profile.lastName}
-                  onChange={(event) =>
-                    updateProfile("lastName", event.target.value)
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium">Email</label>
-
-              <input
-                type="email"
-                value={profile.email}
-                onChange={(event) =>
-                  updateProfile("email", event.target.value)
-                }
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Address line 1
-              </label>
-
-              <input
-                type="text"
-                value={profile.addressLine1}
-                onChange={(event) =>
-                  updateProfile("addressLine1", event.target.value)
-                }
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Address line 2
-              </label>
-
-              <input
-                type="text"
-                value={profile.addressLine2}
-                onChange={(event) =>
-                  updateProfile("addressLine2", event.target.value)
-                }
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium">City</label>
-
-                <input
-                  type="text"
-                  value={profile.city}
-                  onChange={(event) =>
-                    updateProfile("city", event.target.value)
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Country
-                </label>
-
-                <input
-                  type="text"
-                  value={profile.country}
-                  onChange={(event) =>
-                    updateProfile("country", event.target.value)
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
-            </div>
-
-            {profileMessage && (
-              <div
-                className={`rounded-lg p-3 text-sm ${
-                  profileMessage.includes("saved")
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {profileMessage}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={profileSaving}
-              className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
-            >
-              {profileSaving ? "Saving..." : "Save & Continue"}
-            </button>
-          </form>
-
-          {error && (
-            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={cancelBooking}
-            className="mt-4 block w-full text-center text-sm text-gray-500"
-          >
-            Cancel
-          </button>
-        </div>
-      </main>
+      <ProfileForm
+        profile={profile}
+        onFieldChange={updateProfile}
+        onSave={saveProfile}
+        onCancel={cancelBooking}
+        loading={profileLoading}
+        saving={profileSaving}
+        message={profileMessage}
+        error={error}
+      />
     );
   }
 
-  // Payment step
+  if (step === "payment" && payment) {
+    return (
+      <PaymentButton
+        action={payment.action}
+        fields={payment.fields}
+        onCancel={cancelBooking}
+        error={error}
+      />
+    );
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold">Ready for payment</h1>
-
-        <p className="mt-2 text-gray-600">
-          Your selected booking is reserved while we prepare PayHere.
+      <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+        <h1 className="text-xl font-semibold">Something went wrong</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          Please try again.
         </p>
-
-        <button
-          type="button"
-          onClick={submitPayHere}
-          className="mt-8 w-full rounded-lg bg-black px-5 py-3 font-medium text-white"
+        <a
+          href="/player/find-booking"
+          className="mt-4 inline-block rounded-lg bg-black px-5 py-3 text-sm font-medium text-white"
         >
-          Continue to PayHere
-        </button>
-
-        <button
-          type="button"
-          onClick={cancelBooking}
-          className="mt-4 block w-full text-center text-sm text-gray-500"
-        >
-          Cancel
-        </button>
-
-        {error && (
-          <p className="mt-3 text-sm text-red-600">{error}</p>
-        )}
+          Find a Booking
+        </a>
       </div>
     </main>
   );

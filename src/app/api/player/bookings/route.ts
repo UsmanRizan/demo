@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     include: {
       facility: {
         include: {
-          sport: {
+          sports: {
             select: { id: true, name: true },
           },
           location: {
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       id: booking.facility.id,
       name: booking.facility.name,
       price: booking.facility.price.toString(),
-      sport: booking.facility.sport,
+      sports: booking.facility.sports,
       location: booking.facility.location,
     },
   }));

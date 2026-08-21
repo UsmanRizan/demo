@@ -16,7 +16,9 @@ export async function POST(request: Request) {
     const locationId =
       typeof body.locationId === "string" ? body.locationId : "";
 
-    const sportId = typeof body.sportId === "string" ? body.sportId : "";
+    const sportIds: string[] = Array.isArray(body.sportIds)
+      ? body.sportIds.filter((id: unknown) => typeof id === "string")
+      : [];
 
     const name = typeof body.name === "string" ? body.name.trim() : "";
 
@@ -25,10 +27,10 @@ export async function POST(request: Request) {
 
     const price = Number(body.price);
 
-    if (!locationId || !sportId || !name) {
+    if (!locationId || sportIds.length === 0 || !name) {
       return NextResponse.json(
         {
-          error: "Location, sport and facility name are required",
+          error: "Location, at least one sport, and facility name are required",
         },
         { status: 400 },
       );
@@ -57,16 +59,16 @@ export async function POST(request: Request) {
     }
 
     // Only active sports can be selected.
-    const sport = await prisma.sport.findFirst({
+    const sports = await prisma.sport.findMany({
       where: {
-        id: sportId,
+        id: { in: sportIds },
         isActive: true,
       },
     });
 
-    if (!sport) {
+    if (sports.length !== sportIds.length) {
       return NextResponse.json(
-        { error: "Sport not found or inactive" },
+        { error: "One or more sports not found or inactive" },
         { status: 404 },
       );
     }
@@ -74,13 +76,15 @@ export async function POST(request: Request) {
     const facility = await prisma.facility.create({
       data: {
         locationId,
-        sportId,
         name,
         description,
         price,
+        sports: {
+          connect: sportIds.map((id) => ({ id })),
+        },
       },
       include: {
-        sport: true,
+        sports: true,
         location: true,
       },
     });

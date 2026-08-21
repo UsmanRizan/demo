@@ -7,7 +7,7 @@ type Facility = {
   id: string;
   name: string;
   price: string;
-  sport: { name: string };
+  sports: { name: string }[];
   location: { name: string; address: string; city: string };
 };
 
@@ -216,7 +216,7 @@ export default function BookingsClient({
                     </div>
 
                     <div className="mt-2 text-sm text-gray-600">
-                      <p>{booking.facility.sport.name}</p>
+                      <p>{booking.facility.sports.map((s) => s.name).join(", ")}</p>
                       <p>{booking.facility.location.name}</p>
                       <p className="text-gray-500">
                         {booking.facility.location.address}, {booking.facility.location.city}

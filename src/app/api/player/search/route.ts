@@ -23,6 +23,8 @@ const TIME_PERIODS = {
 
 type Period = keyof typeof TIME_PERIODS;
 
+import { createLocalDateTime, isValidDate } from "@/lib/utils";
+
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
 
@@ -41,10 +43,6 @@ function getDayOfWeek(dateString: string) {
   const [year, month, day] = dateString.split("-").map(Number);
 
   return new Date(year, month - 1, day).getDay();
-}
-
-function createLocalDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00+05:30`);
 }
 
 function generateHourlySlots(
@@ -70,22 +68,6 @@ function generateHourlySlots(
   }
 
   return slots;
-}
-
-function isValidDate(date: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return false;
-  }
-
-  const [year, month, day] = date.split("-").map(Number);
-
-  const parsed = new Date(year, month - 1, day);
-
-  return (
-    parsed.getFullYear() === year &&
-    parsed.getMonth() === month - 1 &&
-    parsed.getDate() === day
-  );
 }
 
 export async function GET(request: Request) {
@@ -122,7 +104,11 @@ export async function GET(request: Request) {
 
   const facilities = await prisma.facility.findMany({
     where: {
-      sportId,
+      sports: {
+        some: {
+          id: sportId,
+        },
+      },
       isActive: true,
       location: {
         isActive: true,
@@ -140,7 +126,7 @@ export async function GET(request: Request) {
       name: true,
       price: true,
 
-      sport: {
+      sports: {
         select: {
           id: true,
           name: true,
@@ -229,7 +215,7 @@ export async function GET(request: Request) {
         id: facility.id,
         name: facility.name,
         price: calculatePlayerPrice(Number(facility.price)),
-        sport: facility.sport,
+        sports: facility.sports,
         location: facility.location,
         slots,
       };

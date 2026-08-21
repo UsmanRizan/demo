@@ -61,7 +61,6 @@ model Location {
 model Facility {
   id          String   @id @default(cuid())
   locationId  String
-  sportId     String
   name        String
   description String?
   price       Decimal  @db.Decimal(10, 2)
@@ -70,11 +69,10 @@ model Facility {
   updatedAt   DateTime @updatedAt
 
   location Location  @relation(fields: [locationId], references: [id])
-  sport    Sport     @relation(fields: [sportId], references: [id])
+  sports   Sport[]
   bookings Booking[]
 
   @@index([locationId])
-  @@index([sportId])
 }
 
 model Availability {

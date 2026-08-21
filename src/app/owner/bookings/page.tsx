@@ -17,7 +17,7 @@ export default async function OwnerBookingsPage() {
       include: {
         facility: {
           include: {
-            sport: { select: { id: true, name: true } },
+            sports: { select: { id: true, name: true } },
             location: { select: { id: true, name: true, address: true, city: true } },
           },
         },
@@ -49,7 +49,7 @@ export default async function OwnerBookingsPage() {
       id: b.facility.id,
       name: b.facility.name,
       price: b.facility.price.toString(),
-      sport: b.facility.sport,
+      sports: b.facility.sports,
       location: b.facility.location,
     },
   }));

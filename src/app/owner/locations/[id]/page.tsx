@@ -31,7 +31,7 @@ export default async function LocationPage({ params }: PageProps) {
     include: {
       facilities: {
         include: {
-          sport: true,
+          sports: true,
         },
         orderBy: {
           name: "asc",
@@ -101,7 +101,7 @@ export default async function LocationPage({ params }: PageProps) {
                     <h3 className="text-xl font-semibold">{facility.name}</h3>
 
                     <p className="mt-1 text-sm text-gray-500">
-                      {facility.sport.name}
+                      {facility.sports.map((s) => s.name).join(", ")}
                     </p>
                   </div>
 

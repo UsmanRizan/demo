@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     include: {
       facility: {
         include: {
-          sport: { select: { id: true, name: true } },
+          sports: { select: { id: true, name: true } },
           location: { select: { id: true, name: true, address: true, city: true } },
         },
       },
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       id: booking.facility.id,
       name: booking.facility.name,
       price: booking.facility.price.toString(),
-      sport: booking.facility.sport,
+      sports: booking.facility.sports,
       location: booking.facility.location,
     },
   }));

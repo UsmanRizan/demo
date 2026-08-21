@@ -4,147 +4,16 @@ import crypto from "crypto";
 import { getCurrentUser } from "@/lib/auth";
 import { calculatePlayerPrice } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { buildPayHerePayment } from "@/lib/payhere-helpers";
 import {
-  generatePayHereHash,
-  getMerchantId,
-  PAYHERE_CHECKOUT_URL,
-} from "@/lib/payhere";
+  createLocalDateTime,
+  isValidDate,
+  isValidEmail,
+  isValidSriLankanPhone,
+  normalizePhone,
+} from "@/lib/utils";
 
 const PAYMENT_HOLD_MINUTES = 10;
-
-function createLocalDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00+05:30`);
-}
-
-function isValidDate(date: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return false;
-  }
-
-  const [year, month, day] = date.split("-").map(Number);
-
-  const parsed = new Date(year, month - 1, day);
-
-  return (
-    parsed.getFullYear() === year &&
-    parsed.getMonth() === month - 1 &&
-    parsed.getDate() === day
-  );
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, "");
-}
-
-function isValidSriLankanPhone(phone: string) {
-  return /^94\d{9}$/.test(normalizePhone(phone));
-}
-
-function buildPayHerePayment({
-  booking,
-  customer,
-  facility,
-}: {
-  booking: {
-    id: string;
-    orderId: string | null;
-    totalPrice: unknown;
-  };
-
-  customer: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-
-    address: {
-      addressLine1: string;
-      addressLine2: string | null;
-      city: string;
-      country: string;
-    };
-  };
-
-  facility: {
-    name: string;
-
-    sport: {
-      name: string;
-    };
-  };
-}) {
-  if (!booking.orderId) {
-    throw new Error("Booking orderId is missing");
-  }
-
-  const amount = Number(booking.totalPrice);
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Invalid booking amount");
-  }
-
-  const currency = "LKR";
-
-  const hash = generatePayHereHash({
-    orderId: booking.orderId,
-
-    amount,
-
-    currency,
-  });
-
-  const appUrl = process.env.APP_URL;
-
-  if (!appUrl) {
-    throw new Error("APP_URL is not configured");
-  }
-
-  const address = customer.address.addressLine2
-    ? `${customer.address.addressLine1}, ${customer.address.addressLine2}`
-    : customer.address.addressLine1;
-
-  return {
-    action: PAYHERE_CHECKOUT_URL,
-
-    fields: {
-      merchant_id: getMerchantId(),
-
-      return_url: `${appUrl}/player/payment/success?bookingId=${booking.id}`,
-
-      cancel_url: `${appUrl}/player/payment/cancelled?bookingId=${booking.id}`,
-
-      notify_url: `${appUrl}/api/payments/payhere/notify`,
-
-      first_name: customer.firstName,
-
-      last_name: customer.lastName,
-
-      email: customer.email,
-
-      phone: normalizePhone(customer.phone),
-
-      address,
-
-      city: customer.address.city,
-
-      country: customer.address.country,
-
-      order_id: booking.orderId,
-
-      items: `${facility.sport.name} - ${facility.name}`,
-
-      currency,
-
-      amount: amount.toFixed(2),
-
-      hash,
-    },
-  };
-}
 
 export async function POST(request: Request) {
   try {
@@ -409,7 +278,7 @@ export async function POST(request: Request) {
       },
 
       include: {
-        sport: true,
+        sports: true,
 
         location: {
           include: {

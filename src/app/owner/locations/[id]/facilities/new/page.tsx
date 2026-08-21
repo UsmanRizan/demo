@@ -15,7 +15,7 @@ export default function NewFacilityPage() {
   const locationId = params.id as string;
 
   const [sports, setSports] = useState<Sport[]>([]);
-  const [sportId, setSportId] = useState("");
+  const [selectedSportIds, setSelectedSportIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -36,10 +36,6 @@ export default function NewFacilityPage() {
         }
 
         setSports(data.sports);
-
-        if (data.sports.length > 0) {
-          setSportId(data.sports[0].id);
-        }
       } catch {
         setError("Failed to load sports");
       } finally {
@@ -64,7 +60,7 @@ export default function NewFacilityPage() {
         },
         body: JSON.stringify({
           locationId,
-          sportId,
+          sportIds: selectedSportIds,
           name,
           description,
           price,
@@ -106,7 +102,9 @@ export default function NewFacilityPage() {
 
           <form onSubmit={createFacility} className="mt-8 space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium">Sport</label>
+              <label className="mb-2 block text-sm font-medium">
+                Sports (select one or more)
+              </label>
 
               {loadingSports ? (
                 <p className="text-sm text-gray-500">Loading sports...</p>
@@ -116,18 +114,36 @@ export default function NewFacilityPage() {
                   sport.
                 </div>
               ) : (
-                <select
-                  value={sportId}
-                  onChange={(event) => setSportId(event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                >
+                <div className="space-y-2">
                   {sports.map((sport) => (
-                    <option key={sport.id} value={sport.id}>
-                      {sport.name}
-                    </option>
+                    <label
+                      key={sport.id}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 transition hover:border-black"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSportIds.includes(sport.id)}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            setSelectedSportIds((prev) => [...prev, sport.id]);
+                          } else {
+                            setSelectedSportIds((prev) =>
+                              prev.filter((id) => id !== sport.id),
+                            );
+                          }
+                        }}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-medium">{sport.name}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
+              )}
+
+              {selectedSportIds.length === 0 && !loadingSports && sports.length > 0 && (
+                <p className="mt-1 text-xs text-red-500">
+                  Please select at least one sport.
+                </p>
               )}
             </div>
 
@@ -188,7 +204,7 @@ export default function NewFacilityPage() {
 
             <button
               type="submit"
-              disabled={loading || loadingSports || sports.length === 0}
+              disabled={loading || loadingSports || sports.length === 0 || selectedSportIds.length === 0}
               className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create Facility"}

@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { comparePassword } from "@/lib/password";
 import { createSession } from "@/lib/session";
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "");
-}
+import { normalizePhone } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
