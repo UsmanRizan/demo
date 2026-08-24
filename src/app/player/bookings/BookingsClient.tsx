@@ -98,6 +98,17 @@ export default function BookingsClient({
   const [cancelError, setCancelError] = useState("");
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
+  const CANCEL_WINDOW_HOURS = 8;
+
+  function canCancelBooking(booking: Booking, now: Date): boolean {
+    if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") {
+      return false;
+    }
+    const hoursUntilStart =
+      (new Date(booking.startAt).getTime() - now.getTime()) / (1000 * 60 * 60);
+    return hoursUntilStart >= CANCEL_WINDOW_HOURS;
+  }
+
   const now = useMemo(() => new Date(), []);
 
   const filteredBookings = useMemo(() => {
@@ -116,9 +127,12 @@ export default function BookingsClient({
     cancelled: initialBookings.filter((b) => b.status === "CANCELLED").length,
   }), [initialBookings, now]);
 
+  const [cancelSuccess, setCancelSuccess] = useState("");
+
   async function handleCancel(bookingId: string) {
     setCancellingId(bookingId);
     setCancelError("");
+    setCancelSuccess("");
 
     try {
       const response = await fetch("/api/bookings/cancel", {
@@ -132,6 +146,12 @@ export default function BookingsClient({
       if (!response.ok) {
         setCancelError(data.error || "Failed to cancel booking.");
         return;
+      }
+
+      if (data.walletCredited) {
+        setCancelSuccess(`Rs. ${data.refundAmount} has been credited to your wallet.`);
+      } else {
+        setCancelSuccess("Booking cancelled successfully.");
       }
 
       router.refresh();
@@ -172,6 +192,12 @@ export default function BookingsClient({
         </div>
       )}
 
+      {cancelSuccess && (
+        <div className="mt-6 rounded-xl bg-green-50 p-4 text-sm text-green-700">
+          {cancelSuccess}
+        </div>
+      )}
+
       {filteredBookings.length === 0 ? (
         <div className="mt-8 rounded-2xl bg-white p-8 text-center shadow-sm">
           <p className="text-gray-500">No bookings found for this filter.</p>
@@ -187,8 +213,9 @@ export default function BookingsClient({
           {filteredBookings.map((booking) => {
             const statusBadge = STATUS_BADGE[booking.status] || STATUS_BADGE.PENDING;
             const paymentBadge = PAYMENT_BADGE[booking.paymentStatus] || PAYMENT_BADGE.PENDING;
-            const canCancel = booking.status === "PENDING" && cancellingId !== booking.id;
+            const canCancel = canCancelBooking(booking, now) && cancellingId !== booking.id;
             const showConfirm = cancelConfirmId === booking.id;
+            const isPaidBooking = booking.paymentStatus === "PAID";
 
             return (
               <div
@@ -254,11 +281,22 @@ export default function BookingsClient({
                       </button>
                     )}
 
+                    {!canCancel && isUpcoming(booking, now) && booking.status !== "CANCELLED" && (
+                      <p className="text-xs text-gray-400">
+                        Cannot cancel within {CANCEL_WINDOW_HOURS} hours of start
+                      </p>
+                    )}
+
                     {showConfirm && (
                       <div className="rounded-xl border border-red-200 bg-red-50 p-4">
                         <p className="text-sm text-red-800">
-                          Are you sure? This cannot be undone.
+                          Are you sure you want to cancel this booking?
                         </p>
+                        {isPaidBooking && (
+                          <p className="mt-1 text-xs text-gray-600">
+                            Rs. {formatCurrency(booking.totalPrice).replace("Rs. ", "")} will be credited to your wallet for future bookings.
+                          </p>
+                        )}
                         <div className="mt-3 flex gap-2">
                           <button
                             type="button"

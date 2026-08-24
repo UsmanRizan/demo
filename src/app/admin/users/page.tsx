@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type UserRole = "PLAYER" | "OWNER" | "ADMIN";
 
@@ -18,6 +18,11 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const [newPhone, setNewPhone] = useState("");
+  const [newRole, setNewRole] = useState<UserRole>("PLAYER");
+  const [creating, setCreating] = useState(false);
 
   async function loadUsers() {
     setLoading(true);
@@ -39,8 +44,55 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function createUser(event: FormEvent) {
+    event.preventDefault();
+
+    if (!newPhone.trim()) {
+      return;
+    }
+
+    setMessage("");
+    setSuccessMessage("");
+    setCreating(true);
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: newPhone.trim(),
+          role: newRole,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Failed to create user");
+        return;
+      }
+
+      setUsers((currentUsers) =>
+        [data.user, ...currentUsers].sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+      );
+
+      setNewPhone("");
+      setNewRole("PLAYER");
+      setSuccessMessage(`User ${data.user.phone} created successfully.`);
+    } catch {
+      setMessage("Failed to create user");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function changeRole(userId: string, role: "PLAYER" | "OWNER") {
     setMessage("");
+    setSuccessMessage("");
 
     try {
       const response = await fetch(`/api/admin/users/${userId}/role`, {
@@ -71,7 +123,7 @@ export default function AdminUsersPage() {
         ),
       );
 
-      setMessage("User role updated.");
+      setSuccessMessage("User role updated.");
     } catch {
       setMessage("Failed to update role");
     }
@@ -100,9 +152,48 @@ export default function AdminUsersPage() {
           </a>
         </div>
 
+        {/* Add User Form */}
+        <div className="mt-8 rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Add User</h2>
+
+          <form onSubmit={createUser} className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={newPhone}
+              onChange={(event) => setNewPhone(event.target.value)}
+              placeholder="Phone number"
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black sm:flex-1"
+            />
+
+            <select
+              value={newRole}
+              onChange={(event) => setNewRole(event.target.value as UserRole)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black sm:w-auto"
+            >
+              <option value="PLAYER">Player</option>
+              <option value="OWNER">Owner</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+
+            <button
+              type="submit"
+              disabled={creating}
+              className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50 sm:w-auto"
+            >
+              {creating ? "Creating..." : "Add User"}
+            </button>
+          </form>
+        </div>
+
         {message && (
-          <div className="mt-6 rounded-lg bg-white p-4 text-sm shadow-sm">
+          <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
             {message}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm text-green-700">
+            {successMessage}
           </div>
         )}
 

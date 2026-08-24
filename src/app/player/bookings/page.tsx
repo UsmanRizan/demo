@@ -47,6 +47,11 @@ export default async function PlayerBookingsPage() {
     },
   }));
 
+  const wallet = await prisma.wallet.findUnique({
+    where: { userId: user.id },
+  });
+  const walletBalance = wallet ? Number(wallet.balance) : 0;
+
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-5xl">
@@ -60,6 +65,19 @@ export default async function PlayerBookingsPage() {
           <p className="mt-2 text-gray-600">
             View and manage your sports facility bookings.
           </p>
+        </div>
+
+        {/* Wallet Balance */}
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-700">Wallet Balance</p>
+              <p className="mt-0.5 text-xl font-bold text-green-800">
+                Rs. {walletBalance.toLocaleString("en-LK", { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="text-3xl">💰</div>
+          </div>
         </div>
 
         <BookingsClient initialBookings={bookings} />

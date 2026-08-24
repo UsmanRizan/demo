@@ -9,7 +9,7 @@ import ProfileForm from "@/components/auth/ProfileForm";
 import type { ProfileData } from "@/components/auth/ProfileForm";
 import PaymentButton from "@/components/PaymentButton";
 
-type Step = "phone" | "otp" | "profile" | "payment";
+type Step = "phone" | "otp" | "profile" | "payment-method" | "payment";
 
 function CheckoutContent() {
   const router = useRouter();
@@ -45,6 +45,12 @@ function CheckoutContent() {
   } | null>(null);
 
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [bookingTotal, setBookingTotal] = useState<string | null>(null);
+
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletPaymentLoading, setWalletPaymentLoading] = useState(false);
+  const [walletError, setWalletError] = useState("");
 
   const [error, setError] = useState("");
 
@@ -52,6 +58,21 @@ function CheckoutContent() {
 
   function updateProfile(field: string, value: string) {
     setProfile((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function loadWalletBalance() {
+    setWalletLoading(true);
+    try {
+      const response = await fetch("/api/player/wallet");
+      const data = await response.json();
+      if (response.ok) {
+        setWalletBalance(data.balance);
+      }
+    } catch {
+      // Silently fail - wallet balance will be null
+    } finally {
+      setWalletLoading(false);
+    }
   }
 
   async function tryPayment() {
@@ -102,8 +123,12 @@ function CheckoutContent() {
       }
 
       setBookingId(data.bookingId || null);
+      setBookingTotal(
+        data.payment?.fields?.amount || data.totalPrice || null
+      );
       setPayment(data.payment);
-      setStep("payment");
+      setStep("payment-method");
+      loadWalletBalance();
     } catch {
       setError("Unable to start payment");
     } finally {
@@ -291,6 +316,41 @@ function CheckoutContent() {
     router.push("/player/find-booking");
   }
 
+  async function handleWalletPayment() {
+    if (!bookingId) return;
+
+    setWalletPaymentLoading(true);
+    setWalletError("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/payments/wallet/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setWalletError(data.error || "Failed to process wallet payment.");
+        setWalletPaymentLoading(false);
+        return;
+      }
+
+      // Redirect to success page with booking ID
+      router.push(`/player/payment/success?bookingId=${bookingId}`);
+    } catch {
+      setWalletError("Network error. Please try again.");
+      setWalletPaymentLoading(false);
+    }
+  }
+
+  function formatCurrency(value: string | number) {
+    const num = typeof value === "string" ? Number(value) : value;
+    return `Rs. ${num.toLocaleString("en-LK")}`;
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
@@ -348,6 +408,97 @@ function CheckoutContent() {
         message={profileMessage}
         error={error}
       />
+    );
+  }
+
+  if (step === "payment-method") {
+    const balance = walletBalance ? Number(walletBalance) : 0;
+    const total = bookingTotal ? Number(bookingTotal) : 0;
+    const canPayWithWallet = balance >= total && total > 0;
+
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold">Choose payment method</h1>
+
+          <p className="mt-2 text-gray-600">
+            Select how you&apos;d like to pay for your booking.
+          </p>
+
+          {bookingTotal && (
+            <div className="mt-4 rounded-xl bg-gray-50 p-4">
+              <p className="text-sm text-gray-500">Booking total</p>
+              <p className="text-xl font-bold">{formatCurrency(bookingTotal)}</p>
+            </div>
+          )}
+
+          <div className="mt-6 space-y-3">
+            {/* Wallet Option */}
+            <button
+              type="button"
+              disabled={!canPayWithWallet || walletPaymentLoading}
+              onClick={handleWalletPayment}
+              className={`w-full rounded-lg border p-4 text-left transition ${
+                canPayWithWallet
+                  ? "border-green-300 hover:border-green-500 hover:bg-green-50"
+                  : "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Pay with Wallet</p>
+                  <p className="mt-0.5 text-sm text-gray-500">
+                    {walletLoading
+                      ? "Loading balance..."
+                      : `Balance: ${walletBalance !== null ? formatCurrency(walletBalance) : "Rs. 0"}`}
+                  </p>
+                </div>
+                <div className="text-2xl">💰</div>
+              </div>
+              {!canPayWithWallet && !walletLoading && total > 0 && (
+                <p className="mt-2 text-xs text-red-500">
+                  Insufficient wallet balance. You need {formatCurrency(total)} but have{" "}
+                  {formatCurrency(balance)}.
+                </p>
+              )}
+            </button>
+
+            {/* Card / PayHere Option */}
+            <button
+              type="button"
+              disabled={walletPaymentLoading}
+              onClick={() => setStep("payment")}
+              className="w-full rounded-lg border border-gray-200 p-4 text-left transition hover:border-black hover:bg-gray-50"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Pay with Card</p>
+                  <p className="mt-0.5 text-sm text-gray-500">
+                    Credit/debit card via PayHere
+                  </p>
+                </div>
+                <div className="text-2xl">💳</div>
+              </div>
+            </button>
+          </div>
+
+          {walletError && (
+            <p className="mt-3 text-sm text-red-600">{walletError}</p>
+          )}
+
+          {error && (
+            <p className="mt-3 text-sm text-red-600">{error}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={cancelBooking}
+            className="mt-4 block w-full text-center text-sm text-gray-500"
+          >
+            Cancel
+          </button>
+        </div>
+      </main>
     );
   }
 
