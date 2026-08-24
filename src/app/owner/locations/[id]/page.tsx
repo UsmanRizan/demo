@@ -45,16 +45,16 @@ export default async function LocationPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <a href="/owner" className="text-sm text-gray-600">
           ← Back to Owner Dashboard
         </a>
 
-        <div className="mt-6 rounded-xl bg-white p-8 shadow-sm">
-          <div className="flex items-start justify-between gap-6">
+        <div className="mt-6 rounded-xl bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold">{location.name}</h1>
+              <h1 className="text-2xl font-bold sm:text-3xl">{location.name}</h1>
 
               <p className="mt-2 text-gray-600">
                 {location.address}, {location.city}
@@ -71,19 +71,21 @@ export default async function LocationPage({ params }: PageProps) {
               </section>
             </div>
 
-            <a
-              href={`/owner/locations/${location.id}/facilities/new`}
-              className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white"
-            >
-              Add Facility
-            </a>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <a
+                href={`/owner/locations/${location.id}/facilities/new`}
+                className="w-full rounded-lg bg-black px-5 py-3 text-center text-sm font-medium text-white sm:w-auto"
+              >
+                Add Facility
+              </a>
 
-            <a
-              href={`/owner/bookings?locationId=${location.id}`}
-              className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium"
-            >
-              View Bookings
-            </a>
+              <a
+                href={`/owner/bookings?locationId=${location.id}`}
+                className="w-full rounded-lg border border-gray-300 px-5 py-3 text-center text-sm font-medium sm:w-auto"
+              >
+                View Bookings
+              </a>
+            </div>
           </div>
         </div>
 

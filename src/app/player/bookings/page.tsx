@@ -48,14 +48,14 @@ export default async function PlayerBookingsPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8">
           <a href="/player" className="text-sm text-gray-600">
             ← Back to Player Dashboard
           </a>
 
-          <h1 className="mt-3 text-3xl font-bold">My Bookings</h1>
+          <h1 className="mt-3 text-2xl font-bold sm:text-3xl">My Bookings</h1>
 
           <p className="mt-2 text-gray-600">
             View and manage your sports facility bookings.

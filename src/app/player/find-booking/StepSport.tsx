@@ -11,7 +11,7 @@ type StepSportProps = {
 export default function StepSport({ sports, loading, onSelect }: StepSportProps) {
   return (
     <section className="mt-8">
-      <h2 className="text-3xl font-bold">What do you want to play?</h2>
+      <h2 className="text-2xl font-bold sm:text-3xl">What do you want to play?</h2>
 
       <p className="mt-2 text-gray-600">
         Choose a sport to find nearby courts.

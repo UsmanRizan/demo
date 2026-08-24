@@ -44,8 +44,8 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
   const paid = booking.paymentStatus === "PAID";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 text-center shadow-sm sm:p-8">
         {paid ? (
           <>
             <div className="text-5xl">✓</div>

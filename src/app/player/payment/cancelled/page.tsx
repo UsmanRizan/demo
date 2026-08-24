@@ -35,8 +35,8 @@ export default async function PaymentCancelledPage({ searchParams }: PageProps) 
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-sm sm:p-8">
         <h1 className="text-3xl font-bold">Payment cancelled</h1>
 
         <p className="mt-3 text-gray-600">

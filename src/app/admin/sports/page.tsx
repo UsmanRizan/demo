@@ -111,11 +111,11 @@ export default function AdminSportsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-5xl">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Sports</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">Sports</h1>
 
             <p className="mt-1 text-gray-600">
               Manage the sports available on BookMyPlay.
@@ -124,7 +124,7 @@ export default function AdminSportsPage() {
 
           <a
             href="/admin"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm sm:w-auto"
           >
             Back to Dashboard
           </a>
@@ -133,18 +133,18 @@ export default function AdminSportsPage() {
         <div className="mt-8 rounded-xl bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold">Add sport</h2>
 
-          <form onSubmit={createSport} className="mt-4 flex gap-3">
+          <form onSubmit={createSport} className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="e.g. Table Tennis"
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black sm:flex-1"
             />
 
             <button
               type="submit"
-              className="rounded-lg bg-black px-5 py-3 font-medium text-white"
+              className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white sm:w-auto"
             >
               Add Sport
             </button>

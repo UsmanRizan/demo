@@ -262,9 +262,9 @@ export default function FindBookingPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <div>
-            <h1 className="text-xl font-bold">BookMyPlay</h1>
+            <h1 className="text-xl font-bold sm:text-2xl">BookMyPlay</h1>
 
             <p className="text-sm text-gray-500">Find a Booking</p>
           </div>
@@ -275,9 +275,9 @@ export default function FindBookingPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         {/* Progress */}
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
           {[
             { number: 1, label: "Sport" },
             { number: 2, label: "Time" },

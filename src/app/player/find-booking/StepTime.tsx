@@ -19,7 +19,7 @@ export default function StepTime({
 }: StepTimeProps) {
   return (
     <section className="mt-8">
-      <h2 className="text-3xl font-bold">When do you want to play?</h2>
+      <h2 className="text-2xl font-bold sm:text-3xl">When do you want to play?</h2>
 
       <p className="mt-2 text-gray-600">
         Sport: <strong>{selectedSport.name}</strong>

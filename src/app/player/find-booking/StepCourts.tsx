@@ -103,7 +103,7 @@ export default function StepCourts({
             return (
               <article
                 key={facility.id}
-                className={`rounded-2xl bg-white p-6 shadow-sm ${
+                className={`rounded-2xl bg-white p-4 shadow-sm sm:p-6 ${
                   isSelectedFacility ? "ring-2 ring-black" : ""
                 }`}
               >

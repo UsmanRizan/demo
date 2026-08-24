@@ -105,14 +105,14 @@ export default function NewLocationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-4xl">
         <a href="/owner" className="text-sm text-gray-600">
           ← Back to Owner Dashboard
         </a>
 
-        <div className="mt-6 rounded-xl bg-white p-8 shadow-sm">
-          <h1 className="text-3xl font-bold">Create Location</h1>
+        <div className="mt-6 rounded-xl bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold sm:text-3xl">Create Location</h1>
 
           <p className="mt-2 text-gray-600">
             First place the pin on your venue. We'll automatically find the

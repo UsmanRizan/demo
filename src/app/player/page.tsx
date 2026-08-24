@@ -16,11 +16,11 @@ export default async function PlayerPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-12">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6 sm:py-12">
       <Header user={user} />
 
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold">Welcome to BookMyPlay</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">Welcome to BookMyPlay</h1>
 
         <p className="mt-2 text-gray-600">{user.phone}</p>
 

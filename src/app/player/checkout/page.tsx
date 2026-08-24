@@ -293,8 +293,8 @@ function CheckoutContent() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-        <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm sm:p-8">
           <h1 className="text-xl font-semibold">Preparing payment...</h1>
           <p className="mt-2 text-sm text-gray-500">
             Checking availability and creating your booking.
@@ -363,8 +363,8 @@ function CheckoutContent() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-      <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
+      <div className="rounded-2xl bg-white p-6 text-center shadow-sm sm:p-8">
         <h1 className="text-xl font-semibold">Something went wrong</h1>
         <p className="mt-2 text-sm text-gray-500">
           Please try again.
@@ -384,8 +384,8 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-          <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+        <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
+          <div className="rounded-2xl bg-white p-6 text-center shadow-sm sm:p-8">
             <h1 className="text-xl font-semibold">Preparing payment...</h1>
             <p className="mt-2 text-sm text-gray-500">
               Checking availability and creating your booking.

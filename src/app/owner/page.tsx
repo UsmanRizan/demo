@@ -26,29 +26,31 @@ export default async function OwnerDashboard() {
     <main className="min-h-screen bg-gray-50">
       <Header user={user} />
 
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="flex items-center justify-between">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Your locations</h2>
+            <h2 className="text-2xl font-bold sm:text-3xl">Your locations</h2>
 
             <p className="mt-1 text-gray-600">
               Manage your sports facilities and locations.
             </p>
           </div>
 
-          <a
-            href="/owner/locations/new"
-            className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white"
-          >
-            Add Location
-          </a>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <a
+              href="/owner/locations/new"
+              className="w-full rounded-lg bg-black px-5 py-3 text-center text-sm font-medium text-white sm:w-auto"
+            >
+              Add Location
+            </a>
 
-          <a
-            href="/owner/bookings"
-            className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium"
-          >
-            My Bookings
-          </a>
+            <a
+              href="/owner/bookings"
+              className="w-full rounded-lg border border-gray-300 px-5 py-3 text-center text-sm font-medium sm:w-auto"
+            >
+              My Bookings
+            </a>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">

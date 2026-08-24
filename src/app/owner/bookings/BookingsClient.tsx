@@ -207,11 +207,11 @@ export default function BookingsClient({
           ))}
         </div>
 
-        <div className="flex gap-3">
+        <div className="mt-4 flex flex-col gap-3 sm:mt-0 sm:flex-row">
           <select
             value={locationFilter}
             onChange={(e) => setLocationFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm sm:w-auto"
           >
             <option value="all">All locations</option>
             {locations.map((loc) => (
@@ -224,7 +224,7 @@ export default function BookingsClient({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm sm:w-auto"
           >
             <option value="all">All statuses</option>
             <option value="PENDING">Pending</option>

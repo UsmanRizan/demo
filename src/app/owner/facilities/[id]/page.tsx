@@ -48,7 +48,7 @@ export default async function FacilityPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-4xl">
         <a
           href={`/owner/locations/${facility.location.id}`}
@@ -57,14 +57,14 @@ export default async function FacilityPage({ params }: PageProps) {
           ← Back to {facility.location.name}
         </a>
 
-        <div className="mt-6 rounded-xl bg-white p-8 shadow-sm">
-          <div className="flex items-start justify-between">
+        <div className="mt-6 rounded-xl bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">
                 {facility.sports.map((s) => s.name).join(", ")}
               </p>
 
-              <h1 className="mt-1 text-3xl font-bold">{facility.name}</h1>
+              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{facility.name}</h1>
 
               <p className="mt-2 text-gray-600">{facility.location.name}</p>
             </div>
@@ -75,7 +75,7 @@ export default async function FacilityPage({ params }: PageProps) {
           </div>
 
           {facility.description && (
-            <p className="mt-6 text-gray-600">{facility.description}</p>
+            <p className="mt-4 text-gray-600 sm:mt-6">{facility.description}</p>
           )}
 
           <FacilitySportsEditor

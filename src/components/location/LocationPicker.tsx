@@ -13,7 +13,7 @@ const LocationPickerMap = dynamic(() => import("./LocationPickerMap"), {
   ssr: false,
 
   loading: () => (
-    <div className="flex h-[400px] w-full items-center justify-center rounded-xl border border-gray-300 bg-gray-100">
+    <div className="flex h-[300px] w-full items-center justify-center rounded-xl border border-gray-300 bg-gray-100 sm:h-[400px]">
       <p className="text-sm text-gray-500">Loading map...</p>
     </div>
   ),

@@ -9,8 +9,8 @@ export default async function AdminDashboard() {
     <main className="min-h-screen bg-gray-50">
       <Header user={user} />
 
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <h2 className="text-3xl font-bold">Dashboard</h2>
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <h2 className="text-2xl font-bold sm:text-3xl">Dashboard</h2>
 
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           <div className="rounded-xl bg-white p-6 shadow-sm">

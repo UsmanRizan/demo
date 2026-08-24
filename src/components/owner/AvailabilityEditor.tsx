@@ -178,7 +178,7 @@ export default function AvailabilityEditor({
                         startTime: event.target.value,
                       })
                     }
-                    className="rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+                    className="rounded-lg border border-gray-300 px-3 py-2.5 disabled:bg-gray-100"
                   />
 
                   <span className="text-gray-500">to</span>
@@ -192,7 +192,7 @@ export default function AvailabilityEditor({
                         endTime: event.target.value,
                       })
                     }
-                    className="rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+                    className="rounded-lg border border-gray-300 px-3 py-2.5 disabled:bg-gray-100"
                   />
                 </div>
               </div>

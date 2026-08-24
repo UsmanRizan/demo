@@ -82,11 +82,11 @@ export default function AdminUsersPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-7xl">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Users</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">Users</h1>
             <p className="mt-1 text-gray-600">
               Manage BookMyPlay users and roles.
             </p>
@@ -94,7 +94,7 @@ export default function AdminUsersPage() {
 
           <a
             href="/admin"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm sm:w-auto"
           >
             Back to Dashboard
           </a>
@@ -116,19 +116,19 @@ export default function AdminUsersPage() {
               <table className="w-full">
                 <thead className="border-b bg-gray-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold">
+                    <th className="px-4 py-3 text-left text-xs font-semibold sm:px-6 sm:py-4 sm:text-sm">
                       Phone
                     </th>
 
-                    <th className="px-6 py-4 text-left text-sm font-semibold">
+                    <th className="px-4 py-3 text-left text-xs font-semibold sm:px-6 sm:py-4 sm:text-sm">
                       Name
                     </th>
 
-                    <th className="px-6 py-4 text-left text-sm font-semibold">
+                    <th className="px-4 py-3 text-left text-xs font-semibold sm:px-6 sm:py-4 sm:text-sm">
                       Role
                     </th>
 
-                    <th className="px-6 py-4 text-left text-sm font-semibold">
+                    <th className="px-4 py-3 text-left text-xs font-semibold sm:px-6 sm:py-4 sm:text-sm">
                       Action
                     </th>
                   </tr>
@@ -137,21 +137,21 @@ export default function AdminUsersPage() {
                 <tbody>
                   {users.map((user) => (
                     <tr key={user.id} className="border-b last:border-0">
-                      <td className="px-6 py-4">{user.phone}</td>
+                      <td className="px-4 py-3 sm:px-6 sm:py-4">{user.phone}</td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3 sm:px-6 sm:py-4">
                         {user.firstName || user.lastName
                           ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
                           : "—"}
                       </td>
 
-                      <td className="px-6 py-4">
-                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
+                      <td className="px-4 py-3 sm:px-6 sm:py-4">
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium sm:px-3 sm:py-1">
                           {user.role}
                         </span>
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3 sm:px-6 sm:py-4">
                         {user.role !== "ADMIN" && (
                           <select
                             value={user.role}
@@ -161,7 +161,7 @@ export default function AdminUsersPage() {
                                 event.target.value as "PLAYER" | "OWNER",
                               )
                             }
-                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
                           >
                             <option value="PLAYER">Player</option>
 
@@ -170,7 +170,7 @@ export default function AdminUsersPage() {
                         )}
 
                         {user.role === "ADMIN" && (
-                          <span className="text-sm text-gray-500">
+                          <span className="text-xs text-gray-500 sm:text-sm">
                             Administrator
                           </span>
                         )}

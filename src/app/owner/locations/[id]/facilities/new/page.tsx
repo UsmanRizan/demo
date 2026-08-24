@@ -84,7 +84,7 @@ export default function NewFacilityPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-2xl">
         <a
           href={`/owner/locations/${locationId}`}
@@ -93,8 +93,8 @@ export default function NewFacilityPage() {
           ← Back to Location
         </a>
 
-        <div className="mt-6 rounded-xl bg-white p-8 shadow-sm">
-          <h1 className="text-3xl font-bold">Add Facility</h1>
+        <div className="mt-6 rounded-xl bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold sm:text-3xl">Add Facility</h1>
 
           <p className="mt-2 text-gray-600">
             Add a court, turf, room, or other bookable facility.

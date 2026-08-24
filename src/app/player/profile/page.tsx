@@ -168,21 +168,21 @@ export default function PlayerProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 px-6 py-10">
+      <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-2xl">Loading profile...</div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-2xl">
         <a href="/player" className="text-sm text-gray-600">
           ← Back to Player Dashboard
         </a>
 
-        <div className="mt-6 rounded-2xl bg-white p-8 shadow-sm">
-          <h1 className="text-3xl font-bold">Your Profile</h1>
+        <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold sm:text-3xl">Your Profile</h1>
 
           <p className="mt-2 text-gray-600">
             These details will be used when you make a payment.
@@ -384,7 +384,7 @@ export default function PlayerProfilePage() {
                       </div>
                     )}
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <button
                         type="submit"
                         disabled={passwordLoading}
