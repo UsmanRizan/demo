@@ -158,9 +158,7 @@ export async function GET(request: Request) {
 
       bookings: {
         where: {
-          status: {
-            in: ["PENDING", "CONFIRMED"],
-          },
+          status: "CONFIRMED",
           startAt: {
             lt: dayEnd,
           },
@@ -195,6 +193,12 @@ export async function GET(request: Request) {
         ).values(),
       ).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
+      // Check if this date is today
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const isToday = date === todayStr;
+      const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+
       const slots = uniqueSlots.map((slot) => {
         const slotStart = createLocalDateTime(date, slot.startTime);
 
@@ -204,10 +208,14 @@ export async function GET(request: Request) {
           (booking) => booking.startAt < slotEnd && booking.endAt > slotStart,
         );
 
+        // Disable slots that have already passed (for today's date)
+        const slotStartMinutes = timeToMinutes(slot.startTime);
+        const isPast = isToday && slotStartMinutes <= currentTimeMinutes;
+
         return {
           startTime: slot.startTime,
           endTime: slot.endTime,
-          available: !isBooked,
+          available: !isBooked && !isPast,
         };
       });
 
