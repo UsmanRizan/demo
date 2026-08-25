@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type Sport = {
   id: string;
@@ -91,7 +92,7 @@ export default function FacilitySportsEditor({
                   onChange={() => toggle(sport.id)}
                   className="h-4 w-4"
                 />
-                <span className="text-sm font-medium">{sport.name}</span>
+                <span className="text-sm font-medium">{getSportIcon(sport.name)} {sport.name}</span>
               </label>
             ))}
           </div>
@@ -125,7 +126,7 @@ export default function FacilitySportsEditor({
       ) : (
         <div className="mt-3 flex items-center gap-4">
           <p className="text-lg font-medium">
-            {currentNames.length > 0 ? currentNames.join(", ") : "None"}
+            {currentNames.length > 0 ? currentNames.map((n) => `${getSportIcon(n)} ${n}`).join(", ") : "None"}
           </p>
 
           <button

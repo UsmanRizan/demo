@@ -3,6 +3,7 @@
 import type { Coordinates, Facility, Period, Slot } from "./types";
 import { periods } from "./types";
 import { calculateDistance, formatDistance } from "./utils";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type StepCourtsProps = {
   selectedSportName: string;
@@ -46,7 +47,7 @@ export default function StepCourts({
         <h2 className="text-3xl font-bold text-slate-900">Courts near you</h2>
 
         <p className="mt-2 text-slate-500">
-          {selectedSportName} · {periodLabel} · {selectedDate}
+          {getSportIcon(selectedSportName)} {selectedSportName} · {periodLabel} · {selectedDate}
         </p>
       </div>
 
@@ -133,7 +134,7 @@ export default function StepCourts({
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-sm font-medium text-slate-500">
-                        {facility.sports.map((s) => s.name).join(", ")}
+                        {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
                       </p>
 
                       <h3 className="mt-1 text-xl font-semibold text-slate-900">

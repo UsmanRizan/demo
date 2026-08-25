@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type Sport = {
   id: string;
@@ -164,7 +165,7 @@ export default function AdminSportsPage() {
                   className="flex items-center justify-between border-b p-6 last:border-0"
                 >
                   <div>
-                    <p className="font-semibold">{sport.name}</p>
+                    <p className="font-semibold">{getSportIcon(sport.name)} {sport.name}</p>
 
                     <p className="mt-1 text-sm text-gray-500">{sport.slug}</p>
                   </div>

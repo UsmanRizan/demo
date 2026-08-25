@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type Location = {
   id: string;
@@ -282,7 +283,7 @@ export default function BookingsClient({
                     </div>
 
                     <div className="mt-2 text-sm text-gray-600">
-                      <p>{booking.facility.sports.map((s) => s.name).join(", ")}</p>
+                      <p>{booking.facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}</p>
                       <p>{booking.facility.location.name}</p>
                       <p className="text-gray-500">
                         {booking.facility.location.address}, {booking.facility.location.city}

@@ -1,4 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getSportIcon } from "@/lib/sport-icons";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -65,7 +67,14 @@ const STEPS = [
 ];
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
+  const [user, sports] = await Promise.all([
+    getCurrentUser(),
+    prisma.sport.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -95,16 +104,21 @@ export default async function HomePage() {
               Pick a time, pay securely, and you&apos;re set — all in under a minute.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <a
-                href="/player/find-booking"
-                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 hover:shadow-xl"
-              >
-                Find a Court
-                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </a>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {sports.map((sport) => (
+                <a
+                  key={sport.id}
+                  href={`/player/find-booking?sport=${sport.id}`}
+                  className="group inline-flex items-center justify-between rounded-xl bg-indigo-600 px-5 py-4 text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 hover:shadow-xl"
+                >
+                  <span className="text-sm font-semibold"><span aria-hidden="true" className="mr-1.5">{getSportIcon(sport.name)}</span>{sport.name}</span>
+                  <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+            <div className="mt-6">
               <a
                 href="/owner"
                 className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
@@ -193,13 +207,21 @@ export default async function HomePage() {
             <p className="mx-auto mt-4 max-w-xl text-base text-indigo-100 sm:text-lg">
               Join players already booking their favourite courts on BookMyPlay.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a
-                href="/player/find-booking"
-                className="inline-flex items-center rounded-xl bg-white px-6 py-3.5 text-sm font-semibold text-indigo-700 shadow-lg transition-all hover:bg-indigo-50"
-              >
-                Find a Court
-              </a>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {sports.map((sport) => (
+                <a
+                  key={sport.id}
+                  href={`/player/find-booking?sport=${sport.id}`}
+                  className="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3.5 text-sm font-semibold text-indigo-700 shadow-lg transition-all hover:bg-indigo-50"
+                >
+                  {getSportIcon(sport.name)} {sport.name}
+                  <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a
                 href="/owner/locations/new"
                 className="inline-flex items-center rounded-xl border border-indigo-400 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500"

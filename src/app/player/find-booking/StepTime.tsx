@@ -3,6 +3,7 @@
 import type { Period, Sport } from "./types";
 import { periods } from "./types";
 import { getTodayString } from "./utils";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type StepTimeProps = {
   selectedSport: Sport;
@@ -22,7 +23,7 @@ export default function StepTime({
       <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">When do you want to play?</h2>
 
       <p className="mt-2 text-slate-500">
-        Sport: <span className="font-semibold text-slate-900">{selectedSport.name}</span>
+        Sport: <span className="font-semibold text-slate-900">{getSportIcon(selectedSport.name)} {selectedSport.name}</span>
       </p>
 
       <div className="mt-8 max-w-sm">

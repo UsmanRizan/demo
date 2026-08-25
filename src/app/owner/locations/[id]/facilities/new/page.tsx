@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type Sport = {
   id: string;
@@ -134,7 +135,7 @@ export default function NewFacilityPage() {
                         }}
                         className="h-4 w-4"
                       />
-                      <span className="text-sm font-medium">{sport.name}</span>
+                      <span className="text-sm font-medium">{getSportIcon(sport.name)} {sport.name}</span>
                     </label>
                   ))}
                 </div>

@@ -54,6 +54,7 @@ model Location {
   owner          User           @relation(fields: [ownerId], references: [id])
   facilities     Facility[]
   availabilities Availability[]
+  blockedDates   BlockedDate[]
 
   @@index([ownerId])
   @@index([city])
@@ -90,6 +91,20 @@ model Availability {
 
   @@unique([locationId, dayOfWeek])
   @@index([locationId])
+}
+
+model BlockedDate {
+  id         String   @id @default(cuid())
+  locationId String
+  date       DateTime
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, date])
+  @@index([locationId])
+  @@index([date])
 }
 
 model Booking {

@@ -2,7 +2,9 @@ import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSportIcon } from "@/lib/sport-icons";
 import AvailabilityEditor from "@/components/owner/AvailabilityEditor";
+import BlockedDatesEditor from "@/components/owner/BlockedDatesEditor";
 
 type PageProps = {
   params: Promise<{
@@ -69,6 +71,10 @@ export default async function LocationPage({ params }: PageProps) {
               <section className="mt-8">
                 <AvailabilityEditor locationId={location.id} />
               </section>
+
+              <section className="mt-8">
+                <BlockedDatesEditor locationId={location.id} />
+              </section>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -103,7 +109,7 @@ export default async function LocationPage({ params }: PageProps) {
                     <h3 className="text-xl font-semibold">{facility.name}</h3>
 
                     <p className="mt-1 text-sm text-gray-500">
-                      {facility.sports.map((s) => s.name).join(", ")}
+                      {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
                     </p>
                   </div>
 

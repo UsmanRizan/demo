@@ -1,6 +1,7 @@
 "use client";
 
 import type { Sport } from "./types";
+import { getSportIcon } from "@/lib/sport-icons";
 
 type StepSportProps = {
   sports: Sport[];
@@ -36,7 +37,7 @@ export default function StepSport({ sports, loading, onSelect }: StepSportProps)
               onClick={() => onSelect(sport)}
               className="card-hover rounded-2xl border border-slate-200 bg-white p-6 text-left transition hover:border-indigo-300 hover:shadow-sm"
             >
-              <h3 className="text-xl font-semibold text-slate-900">{sport.name}</h3>
+              <h3 className="text-xl font-semibold text-slate-900"><span aria-hidden="true" className="mr-2">{getSportIcon(sport.name)}</span>{sport.name}</h3>
               <p className="mt-2 text-sm text-slate-500">
                 Find {sport.name.toLowerCase()} courts near you.
               </p>

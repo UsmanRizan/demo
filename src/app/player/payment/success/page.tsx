@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSportIcon } from "@/lib/sport-icons";
 import Header from "@/components/Header";
 
 type PageProps = {
@@ -90,7 +91,7 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
 
             {/* Booking details */}
             <div className="mt-6 rounded-xl bg-slate-50 p-5 text-left">
-              <p className="font-semibold text-slate-900">{booking.facility.name}</p>
+              <p className="font-semibold text-slate-900">{booking.facility.sports.length > 0 ? getSportIcon(booking.facility.sports[0].name) : "🏅"} {booking.facility.name}</p>
               <p className="mt-1 text-sm text-slate-500">{booking.facility.location.name}</p>
 
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">

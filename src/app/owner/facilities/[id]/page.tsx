@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSportIcon } from "@/lib/sport-icons";
 import FacilityPriceEditor from "@/components/owner/FacilityPriceEditor";
 import FacilitySportsEditor from "@/components/owner/FacilitySportsEditor";
 
@@ -61,7 +62,7 @@ export default async function FacilityPage({ params }: PageProps) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">
-                {facility.sports.map((s) => s.name).join(", ")}
+                {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
               </p>
 
               <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{facility.name}</h1>

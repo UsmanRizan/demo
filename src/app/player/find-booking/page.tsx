@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Coordinates, Facility, Period, Slot, Sport } from "./types";
 import { periods } from "./types";
 import {
@@ -15,7 +15,16 @@ import StepTime from "./StepTime";
 import StepCourts from "./StepCourts";
 
 export default function FindBookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <FindBookingContent />
+    </Suspense>
+  );
+}
+
+function FindBookingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [step, setStep] = useState(1);
 
@@ -57,6 +66,15 @@ export default function FindBookingPage() {
         }
 
         setSports(data.sports);
+
+        const urlSportId = searchParams.get("sport");
+        if (urlSportId) {
+          const match = data.sports.find((s: Sport) => s.id === urlSportId);
+          if (match) {
+            setSelectedSport(match);
+            setStep(2);
+          }
+        }
       } catch {
         setError("Failed to load sports");
       } finally {
@@ -65,7 +83,7 @@ export default function FindBookingPage() {
     }
 
     loadSports();
-  }, []);
+  }, [searchParams]);
 
   function selectSport(sport: Sport) {
     setSelectedSport(sport);

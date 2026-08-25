@@ -98,6 +98,18 @@ export async function GET(request: Request) {
 
   const dayOfWeek = getDayOfWeek(date);
 
+  // Check if this date is blocked for any location
+  const blockedLocationIds = await prisma.blockedDate
+    .findMany({
+      where: {
+        date: createLocalDateTime(date, "00:00"),
+      },
+      select: {
+        locationId: true,
+      },
+    })
+    .then((rows) => new Set(rows.map((r) => r.locationId)));
+
   const dayStart = createLocalDateTime(date, "00:00");
 
   const dayEnd = createLocalDateTime(date, "23:59");
@@ -109,16 +121,16 @@ export async function GET(request: Request) {
           id: sportId,
         },
       },
-      isActive: true,
-      location: {
-        isActive: true,
-        availabilities: {
-          some: {
-            dayOfWeek,
-            isActive: true,
+      isActive: true,        location: {
+          id: { notIn: [...blockedLocationIds] },
+          isActive: true,
+          availabilities: {
+            some: {
+              dayOfWeek,
+              isActive: true,
+            },
           },
         },
-      },
     },
 
     select: {
