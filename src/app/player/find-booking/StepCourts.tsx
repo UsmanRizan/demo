@@ -110,6 +110,16 @@ export default function StepCourts({
             const facilityTotal =
               facilitySelectedSlots.length * facility.price;
 
+            const hasCoords =
+              facility.location.latitude !== null &&
+              facility.location.longitude !== null;
+
+            const mapsUrl = hasCoords
+              ? `https://www.google.com/maps/search/?api=1&query=${facility.location.latitude},${facility.location.longitude}`
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  `${facility.location.name}, ${facility.location.address}, ${facility.location.city}`,
+                )}`;
+
             return (
               <article
                 key={facility.id}
@@ -139,9 +149,33 @@ export default function StepCourts({
                         {facility.location.city}
                       </p>
 
-                      <p className="mt-3 text-sm font-medium text-slate-600">
-                        {formatDistance(distance)}
-                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <p className="text-sm font-medium text-slate-600">
+                          {formatDistance(distance)}
+                        </p>
+
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50"
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                          </svg>
+                          Open in Maps
+                        </a>
+                      </div>
                     </div>
 
                     <div className="sm:text-right">
