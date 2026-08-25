@@ -78,6 +78,7 @@ export default function Header({ user }: HeaderProps) {
         ? [
             { href: "/owner", label: "Dashboard" },
             { href: "/owner/bookings", label: "Bookings" },
+            { href: "/owner/earnings", label: "Earnings" },
           ]
         : [
             { href: "/admin", label: "Dashboard" },
