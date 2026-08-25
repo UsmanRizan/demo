@@ -1,5 +1,6 @@
 import { requireOwner } from "@/lib/owner";
 import { prisma } from "@/lib/prisma";
+import Header from "@/components/Header";
 import BookingsClient from "./BookingsClient";
 
 export default async function OwnerBookingsPage() {
@@ -55,16 +56,13 @@ export default async function OwnerBookingsPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8">
-          <a href="/owner" className="text-sm text-gray-600">
-            ← Back to Owner Dashboard
-          </a>
+    <main className="min-h-screen bg-slate-50">
+      <Header user={user} />
 
-          <h1 className="mt-3 text-2xl font-bold sm:text-3xl">My Bookings</h1>
-
-          <p className="mt-2 text-gray-600">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Bookings</h1>
+          <p className="mt-1 text-slate-500">
             View and manage bookings for all your facilities.
           </p>
         </div>

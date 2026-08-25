@@ -1,9 +1,32 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
-  title: "BookMyPlay",
-  description: "Find and book sports facilities.",
+  title: {
+    default: "BookMyPlay — Sports Facility Booking",
+    template: "%s | BookMyPlay",
+  },
+  description:
+    "Find and book indoor sports facilities near you. Courts, turfs, and more — available by the hour.",
+  keywords: ["sports", "booking", "courts", "facilities", "badminton", "cricket", "football"],
+  openGraph: {
+    title: "BookMyPlay",
+    description: "Find and book sports facilities near you.",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#4f46e5",
 };
 
 export default function RootLayout({
@@ -12,8 +35,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={inter.variable}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

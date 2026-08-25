@@ -134,19 +134,19 @@ export default function AdminUsersPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold sm:text-3xl">Users</h1>
-            <p className="mt-1 text-gray-600">
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Users</h1>
+            <p className="mt-1 text-slate-500">
               Manage BookMyPlay users and roles.
             </p>
           </div>
 
           <a
             href="/admin"
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm sm:w-auto"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 sm:w-auto"
           >
             Back to Dashboard
           </a>

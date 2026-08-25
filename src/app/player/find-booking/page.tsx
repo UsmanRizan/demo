@@ -260,22 +260,22 @@ export default function FindBookingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <div>
-            <h1 className="text-xl font-bold sm:text-2xl">BookMyPlay</h1>
-
-            <p className="text-sm text-gray-500">Find a Booking</p>
-          </div>
-
-          <a href="/player" className="text-sm text-gray-600">
-            Player Dashboard
+    <main className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <a href="/player" className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
+              B
+            </div>
+            <span className="text-lg font-bold text-slate-900">BookMyPlay</span>
+          </a>
+          <a href="/player" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+            My Dashboard
           </a>
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         {/* Progress */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
           {[

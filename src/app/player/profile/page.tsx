@@ -4,47 +4,30 @@ import { FormEvent, useEffect, useState } from "react";
 
 export default function PlayerProfilePage() {
   const [firstName, setFirstName] = useState("");
-
   const [lastName, setLastName] = useState("");
-
   const [email, setEmail] = useState("");
-
   const [phone, setPhone] = useState("");
-
   const [addressLine1, setAddressLine1] = useState("");
-
   const [addressLine2, setAddressLine2] = useState("");
-
   const [city, setCity] = useState("");
-
   const [country, setCountry] = useState("Sri Lanka");
-
   const [hasPassword, setHasPassword] = useState(false);
-
   const [loading, setLoading] = useState(true);
-
   const [saving, setSaving] = useState(false);
-
   const [message, setMessage] = useState("");
 
   // Password change state
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-
   const [currentPassword, setCurrentPassword] = useState("");
-
   const [newPassword, setNewPassword] = useState("");
-
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [passwordMessage, setPasswordMessage] = useState("");
-
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
       try {
         const response = await fetch("/api/player/profile");
-
         const data = await response.json();
 
         if (!response.ok) {
@@ -53,23 +36,14 @@ export default function PlayerProfilePage() {
         }
 
         const profile = data.profile;
-
         setFirstName(profile.firstName || "");
-
         setLastName(profile.lastName || "");
-
         setEmail(profile.email || "");
-
         setPhone(profile.phone || "");
-
         setAddressLine1(profile.address?.addressLine1 || "");
-
         setAddressLine2(profile.address?.addressLine2 || "");
-
         setCity(profile.address?.city || "");
-
         setCountry(profile.address?.country || "Sri Lanka");
-
         setHasPassword(profile.hasPassword || false);
       } catch {
         setMessage("Failed to load profile");
@@ -83,25 +57,14 @@ export default function PlayerProfilePage() {
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
-
     setSaving(true);
     setMessage("");
 
     try {
       const response = await fetch("/api/player/profile", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          addressLine1,
-          addressLine2,
-          city,
-          country,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName, email, addressLine1, addressLine2, city, country }),
       });
 
       const data = await response.json();
@@ -140,10 +103,7 @@ export default function PlayerProfilePage() {
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
       const data = await response.json();
@@ -168,130 +128,120 @@ export default function PlayerProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
-        <div className="mx-auto max-w-2xl">Loading profile...</div>
+      <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
+        <div className="mx-auto max-w-2xl flex items-center gap-3">
+          <svg className="spinner h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span className="text-sm text-slate-500">Loading profile...</span>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-2xl">
-        <a href="/player" className="text-sm text-gray-600">
-          ← Back to Player Dashboard
+        <a href="/player" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-700">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+          Back to Dashboard
         </a>
 
-        <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-2xl font-bold sm:text-3xl">Your Profile</h1>
-
-          <p className="mt-2 text-gray-600">
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Your Profile</h1>
+          <p className="mt-1 text-sm text-slate-500">
             These details will be used when you make a payment.
           </p>
 
-          <form onSubmit={saveProfile} className="mt-8 space-y-5">
+          <form onSubmit={saveProfile} className="mt-6 space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium">
-                  First name
-                </label>
-
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">First name</label>
                 <input
                   value={firstName}
                   onChange={(event) => setFirstName(event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
-
               <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Last name
-                </label>
-
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Last name</label>
                 <input
                   value={lastName}
                   onChange={(event) => setLastName(event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Phone</label>
-
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Phone</label>
               <input
                 value={phone}
                 readOnly
-                className="w-full rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 text-gray-600"
+                className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-500"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Email</label>
-
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">
-                Address line 1
-              </label>
-
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Address line 1</label>
               <input
                 value={addressLine1}
                 onChange={(event) => setAddressLine1(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">
-                Address line 2
-              </label>
-
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Address line 2</label>
               <input
                 value={addressLine2}
                 onChange={(event) => setAddressLine2(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium">City</label>
-
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">City</label>
                 <input
                   value={city}
                   onChange={(event) => setCity(event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
-
               <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Country
-                </label>
-
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Country</label>
                 <input
                   value={country}
                   onChange={(event) => setCountry(event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
             </div>
 
             {message && (
-              <div className="rounded-lg bg-gray-100 p-3 text-sm text-gray-700">
+              <div className={`rounded-xl p-3 text-sm ${
+                message.includes("success") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+              }`}>
                 {message}
               </div>
             )}
@@ -299,15 +249,15 @@ export default function PlayerProfilePage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
+              className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
             >
               {saving ? "Saving..." : "Save Profile"}
             </button>
           </form>
 
           {/* Password Section */}
-          <div className="mt-10 border-t pt-8">
-            <h2 className="text-xl font-bold">Password</h2>
+          <div className="mt-10 border-t border-slate-200 pt-8">
+            <h2 className="text-xl font-bold text-slate-900">Password</h2>
 
             {hasPassword ? (
               <>
@@ -315,71 +265,47 @@ export default function PlayerProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowPasswordForm(true)}
-                    className="mt-4 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium"
+                    className="mt-4 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
                   >
                     Change password
                   </button>
                 ) : (
-                  <form
-                    onSubmit={handleChangePassword}
-                    className="mt-4 space-y-4"
-                  >
+                  <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
                     <div>
-                      <label className="mb-2 block text-sm font-medium">
-                        Current password
-                      </label>
-
+                      <label className="mb-1.5 block text-sm font-medium text-slate-700">Current password</label>
                       <input
                         type="password"
                         value={currentPassword}
-                        onChange={(event) =>
-                          setCurrentPassword(event.target.value)
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                         required
                       />
                     </div>
-
                     <div>
-                      <label className="mb-2 block text-sm font-medium">
-                        New password
-                      </label>
-
+                      <label className="mb-1.5 block text-sm font-medium text-slate-700">New password</label>
                       <input
                         type="password"
                         value={newPassword}
-                        onChange={(event) =>
-                          setNewPassword(event.target.value)
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                         required
                       />
                     </div>
-
                     <div>
-                      <label className="mb-2 block text-sm font-medium">
-                        Confirm new password
-                      </label>
-
+                      <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm new password</label>
                       <input
                         type="password"
                         value={confirmPassword}
-                        onChange={(event) =>
-                          setConfirmPassword(event.target.value)
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
                         required
                       />
                     </div>
 
                     {passwordMessage && (
-                      <div
-                        className={`rounded-lg p-3 text-sm ${
-                          passwordMessage.includes("success")
-                            ? "bg-green-50 text-green-700"
-                            : "bg-red-50 text-red-700"
-                        }`}
-                      >
+                      <div className={`rounded-xl p-3 text-sm ${
+                        passwordMessage.includes("success") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                      }`}>
                         {passwordMessage}
                       </div>
                     )}
@@ -388,11 +314,10 @@ export default function PlayerProfilePage() {
                       <button
                         type="submit"
                         disabled={passwordLoading}
-                        className="flex-1 rounded-lg bg-black px-4 py-3 font-medium text-white disabled:opacity-50"
+                        className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
                       >
                         {passwordLoading ? "Saving..." : "Update password"}
                       </button>
-
                       <button
                         type="button"
                         onClick={() => {
@@ -402,7 +327,7 @@ export default function PlayerProfilePage() {
                           setNewPassword("");
                           setConfirmPassword("");
                         }}
-                        className="rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium"
+                        className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50"
                       >
                         Cancel
                       </button>
@@ -411,9 +336,8 @@ export default function PlayerProfilePage() {
                 )}
               </>
             ) : (
-              <p className="mt-4 text-sm text-gray-600">
-                You haven&apos;t set a password yet. Use OTP to sign in, or
-                set one now from the login page.
+              <p className="mt-4 text-sm text-slate-500">
+                You haven&apos;t set a password yet. Use OTP to sign in, or set one now from the login page.
               </p>
             )}
           </div>

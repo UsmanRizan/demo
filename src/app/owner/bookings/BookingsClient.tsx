@@ -53,15 +53,15 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   PENDING: {
     label: "Awaiting payment",
-    className: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
   },
   CONFIRMED: {
     label: "Confirmed",
-    className: "bg-green-50 text-green-700 border-green-200",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-gray-50 text-gray-600 border-gray-200",
+    className: "bg-slate-50 text-slate-500 border-slate-200",
   },
   COMPLETED: {
     label: "Completed",
@@ -70,11 +70,11 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
 };
 
 const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
-  PENDING: { label: "Payment pending", className: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-  PAID: { label: "Paid", className: "bg-green-50 text-green-700 border-green-200" },
-  FAILED: { label: "Payment failed", className: "bg-red-50 text-red-700 border-red-200" },
-  CANCELLED: { label: "Payment cancelled", className: "bg-gray-50 text-gray-600 border-gray-200" },
-  CHARGEBACK: { label: "Chargeback", className: "bg-red-50 text-red-700 border-red-200" },
+  PENDING: { label: "Payment pending", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  PAID: { label: "Paid", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  FAILED: { label: "Payment failed", className: "bg-red-50 text-red-600 border-red-200" },
+  CANCELLED: { label: "Payment cancelled", className: "bg-slate-50 text-slate-500 border-slate-200" },
+  CHARGEBACK: { label: "Chargeback", className: "bg-red-50 text-red-600 border-red-200" },
 };
 
 function formatCurrency(value: string | number) {
@@ -242,8 +242,8 @@ export default function BookingsClient({
       )}
 
       {filteredBookings.length === 0 ? (
-        <div className="mt-8 rounded-2xl bg-white p-8 text-center shadow-sm">
-          <p className="text-gray-500">No bookings found for this filter.</p>
+        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-slate-500">No bookings found for this filter.</p>
         </div>
       ) : (
         <div className="mt-6 space-y-4">

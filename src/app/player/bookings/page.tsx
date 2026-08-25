@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import BookingsClient from "./BookingsClient";
 
 export default async function PlayerBookingsPage() {
@@ -53,26 +55,23 @@ export default async function PlayerBookingsPage() {
   const walletBalance = wallet ? Number(wallet.balance) : 0;
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8">
-          <a href="/player" className="text-sm text-gray-600">
-            ← Back to Player Dashboard
-          </a>
+    <main className="min-h-screen bg-slate-50">
+      <Header user={user} />
 
-          <h1 className="mt-3 text-2xl font-bold sm:text-3xl">My Bookings</h1>
-
-          <p className="mt-2 text-gray-600">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Bookings</h1>
+          <p className="mt-1 text-slate-500">
             View and manage your sports facility bookings.
           </p>
         </div>
 
         {/* Wallet Balance */}
-        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm">
+        <div className="mb-6 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-500 to-indigo-600 p-5 text-white shadow-lg shadow-indigo-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-700">Wallet Balance</p>
-              <p className="mt-0.5 text-xl font-bold text-green-800">
+              <p className="text-sm font-medium text-indigo-100">Wallet Balance</p>
+              <p className="mt-0.5 text-2xl font-bold">
                 Rs. {walletBalance.toLocaleString("en-LK", { minimumFractionDigits: 2 })}
               </p>
             </div>
@@ -82,6 +81,8 @@ export default async function PlayerBookingsPage() {
 
         <BookingsClient initialBookings={bookings} />
       </div>
+
+      <Footer />
     </main>
   );
 }

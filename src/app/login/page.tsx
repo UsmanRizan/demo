@@ -119,190 +119,215 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-2xl font-bold">BookMyPlay</h1>
-
-        {/* Tabs */}
-        <div className="mt-4 flex border-b">
-          <button
-            type="button"
-            onClick={() => setTab("password")}
-            className={`flex-1 pb-2 text-sm font-medium ${
-              tab === "password"
-                ? "border-b-2 border-black text-black"
-                : "text-gray-500"
-            }`}
-          >
-            Password
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("otp")}
-            className={`flex-1 pb-2 text-sm font-medium ${
-              tab === "otp"
-                ? "border-b-2 border-black text-black"
-                : "text-gray-500"
-            }`}
-          >
-            OTP
-          </button>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
+      <div className="w-full max-w-md">
+        {/* Brand header */}
+        <div className="mb-8 text-center">
+          <a href="/" className="inline-flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+              B
+            </div>
+            <span className="text-2xl font-bold text-slate-900">BookMyPlay</span>
+          </a>
         </div>
 
-        {tab === "password" ? (
-          <>
-            <p className="mt-4 text-gray-600">
-              Enter your phone number and password to sign in.
-            </p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
+          <h1 className="text-xl font-semibold text-slate-900">Welcome back</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Sign in to access your bookings.
+          </p>
 
-            <form onSubmit={handlePasswordLogin} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Phone number
-                </label>
+          {/* Tabs */}
+          <div className="mt-5 flex border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setTab("password")}
+              className={`flex-1 pb-3 text-sm font-medium transition ${
+                tab === "password"
+                  ? "border-b-2 border-indigo-600 text-indigo-600"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Password
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("otp")}
+              className={`flex-1 pb-3 text-sm font-medium transition ${
+                tab === "otp"
+                  ? "border-b-2 border-indigo-600 text-indigo-600"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              OTP
+            </button>
+          </div>
 
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="+94771234567"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Password
-                </label>
-
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={passwordLoading}
-                className="w-full rounded-lg bg-black px-4 py-3 font-medium text-white disabled:opacity-50"
-              >
-                {passwordLoading ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
-
-            <p className="mt-4 text-center text-sm text-gray-600">
-              Don&apos;t have a password yet?{" "}
-              <button
-                type="button"
-                onClick={() => setTab("otp")}
-                className="font-medium underline"
-              >
-                Use OTP
-              </button>
-            </p>
-
-            {passwordMessage && (
-              <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                {passwordMessage}
+          {tab === "password" ? (
+            <>
+              <p className="mt-5 text-sm text-slate-500">
+                Enter your phone number and password to sign in.
               </p>
-            )}
-          </>
-        ) : otpStep === "phone" ? (
-          <>
-            <p className="mt-4 text-gray-600">
-              Enter your phone number to receive an OTP.
-            </p>
 
-            <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Phone number
-                </label>
+              <form onSubmit={handlePasswordLogin} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Phone number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="+94 77 123 4567"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                </div>
 
-                <input
-                  type="tel"
-                  value={otpPhone}
-                  onChange={(event) => setOtpPhone(event.target.value)}
-                  placeholder="+94771234567"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-                  required
-                />
-              </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={otpLoading}
-                className="w-full rounded-lg bg-black px-4 py-3 font-medium text-white disabled:opacity-50"
-              >
-                {otpLoading ? "Sending..." : "Send OTP"}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+                >
+                  {passwordLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : (
+                    "Sign in"
+                  )}
+                </button>
+              </form>
 
-            <p className="mt-4 text-center text-sm text-gray-600">
-              Already have a password?{" "}
-              <button
-                type="button"
-                onClick={() => setTab("password")}
-                className="font-medium underline"
-              >
-                Sign in
-              </button>
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="mt-4 text-gray-600">
-              Enter the OTP sent to your phone.
-            </p>
-
-            <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium">OTP</label>
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
-                  placeholder="123456"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-center text-xl tracking-[0.5em] outline-none focus:border-black"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={otpLoading}
-                className="w-full rounded-lg bg-black px-4 py-3 font-medium text-white disabled:opacity-50"
-              >
-                {otpLoading ? "Verifying..." : "Verify OTP"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOtpStep("phone");
-                  setCode("");
-                }}
-                className="w-full text-sm text-gray-600"
-              >
-                Change phone number
-              </button>
-            </form>
-
-            {otpMessage && (
-              <p className="mt-4 rounded-lg bg-gray-100 p-3 text-sm text-gray-700">
-                {otpMessage}
+              <p className="mt-4 text-center text-sm text-slate-500">
+                Don&apos;t have a password yet?{" "}
+                <button
+                  type="button"
+                  onClick={() => setTab("otp")}
+                  className="font-medium text-indigo-600 hover:text-indigo-700"
+                >
+                  Use OTP
+                </button>
               </p>
-            )}
-          </>
-        )}
+
+              {passwordMessage && (
+                <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+                  {passwordMessage}
+                </p>
+              )}
+            </>
+          ) : otpStep === "phone" ? (
+            <>
+              <p className="mt-5 text-sm text-slate-500">
+                Enter your phone number to receive a one-time code.
+              </p>
+
+              <form onSubmit={handleSendOtp} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Phone number
+                  </label>
+                  <input
+                    type="tel"
+                    value={otpPhone}
+                    onChange={(event) => setOtpPhone(event.target.value)}
+                    placeholder="+94 77 123 4567"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={otpLoading}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+                >
+                  {otpLoading ? "Sending..." : "Send OTP"}
+                </button>
+              </form>
+
+              <p className="mt-4 text-center text-sm text-slate-500">
+                Already have a password?{" "}
+                <button
+                  type="button"
+                  onClick={() => setTab("password")}
+                  className="font-medium text-indigo-600 hover:text-indigo-700"
+                >
+                  Sign in
+                </button>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-5 text-sm text-slate-500">
+                Enter the 6-digit code sent to your phone.
+              </p>
+
+              <form onSubmit={handleVerifyOtp} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">OTP</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                    placeholder="123456"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-center text-lg font-semibold tracking-[0.5em] outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={otpLoading}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+                >
+                  {otpLoading ? "Verifying..." : "Verify OTP"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpStep("phone");
+                    setCode("");
+                  }}
+                  className="w-full text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Change phone number
+                </button>
+              </form>
+
+              {otpMessage && (
+                <p className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-700">
+                  {otpMessage}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        <p className="mt-6 text-center text-xs text-slate-400">
+          By continuing, you agree to BookMyPlay&apos;s Terms of Service.
+        </p>
       </div>
     </main>
   );
