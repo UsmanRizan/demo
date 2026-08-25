@@ -77,10 +77,46 @@ export async function PATCH(
         },
       },
       player: {
-        select: { firstName: true, lastName: true, phone: true, email: true },
+        select: { firstName: true, lastName: true, phone: true, email: true, id: true },
       },
     },
   });
+
+  // Credit player's wallet if a paid booking was cancelled
+  let walletCredited = false;
+  if (action === "cancel" && booking.paymentStatus === "PAID") {
+    const refundAmount = Number(booking.totalPrice);
+    try {
+      await prisma.$transaction(async (tx) => {
+        const wallet = await tx.wallet.upsert({
+          where: { userId: booking.playerId },
+          create: {
+            userId: booking.playerId,
+            balance: refundAmount,
+          },
+          update: {
+            balance: {
+              increment: refundAmount,
+            },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: refundAmount,
+            type: "CREDIT",
+            bookingId: booking.id,
+            note: "Booking cancellation refund by owner",
+          },
+        });
+      });
+
+      walletCredited = true;
+    } catch (walletError) {
+      console.error("Wallet credit failed (booking still cancelled):", walletError);
+    }
+  }
 
   return NextResponse.json({
     id: updated.id,
@@ -100,5 +136,6 @@ export async function PATCH(
       sports: updated.facility.sports,
       location: updated.facility.location,
     },
+    ...(action === "cancel" && { walletCredited }),
   });
 }
