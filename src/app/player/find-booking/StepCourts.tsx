@@ -121,13 +121,17 @@ export default function StepCourts({
                   `${facility.location.name}, ${facility.location.address}, ${facility.location.city}`,
                 )}`;
 
+            const isBlocked = facility.blockedReason !== null;
+
             return (
               <article
                 key={facility.id}
                 className={`rounded-2xl border bg-white p-4 shadow-sm sm:p-6 ${
-                  isSelectedFacility
-                    ? "border-indigo-300 ring-2 ring-indigo-100"
-                    : "border-slate-200"
+                  isBlocked
+                    ? "border-amber-200"
+                    : isSelectedFacility
+                      ? "border-indigo-300 ring-2 ring-indigo-100"
+                      : "border-slate-200"
                 }`}
               >
                 <div className="flex flex-col gap-5">
@@ -189,9 +193,27 @@ export default function StepCourts({
                     </div>
                   </div>
 
+                  {isBlocked && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-lg">🚫</span>
+                        <div>
+                          <p className="text-sm font-semibold text-amber-800">
+                            Not available on this date
+                          </p>
+                          {facility.blockedReason && (
+                            <p className="mt-0.5 text-sm text-amber-700">
+                              {facility.blockedReason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <p className="mb-3 text-sm font-medium text-slate-700">
-                      Available hourly slots
+                      {isBlocked ? "All slots blocked" : "Available hourly slots"}
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -220,7 +242,7 @@ export default function StepCourts({
                             </div>
                             {!slot.available && (
                               <div className="mt-1 text-[10px]">
-                                Booked
+                                {isBlocked ? "Blocked" : "Booked"}
                               </div>
                             )}
                           </button>

@@ -99,16 +99,19 @@ export async function GET(request: Request) {
   const dayOfWeek = getDayOfWeek(date);
 
   // Check if this date is blocked for any location
-  const blockedLocationIds = await prisma.blockedDate
-    .findMany({
-      where: {
-        date: createLocalDateTime(date, "00:00"),
-      },
-      select: {
-        locationId: true,
-      },
-    })
-    .then((rows) => new Set(rows.map((r) => r.locationId)));
+  const blockedDatesForDay = await prisma.blockedDate.findMany({
+    where: {
+      date: createLocalDateTime(date, "00:00"),
+    },
+    select: {
+      locationId: true,
+      reason: true,
+    },
+  });
+
+  const blockedLocationMap = new Map(
+    blockedDatesForDay.map((r) => [r.locationId, r.reason]),
+  );
 
   const dayStart = createLocalDateTime(date, "00:00");
 
@@ -122,7 +125,6 @@ export async function GET(request: Request) {
         },
       },
       isActive: true,        location: {
-          id: { notIn: [...blockedLocationIds] },
           isActive: true,
           availabilities: {
             some: {
@@ -224,12 +226,17 @@ export async function GET(request: Request) {
         const slotStartMinutes = timeToMinutes(slot.startTime);
         const isPast = isToday && slotStartMinutes <= currentTimeMinutes;
 
+        const isBlocked = blockedLocationMap.has(facility.location.id);
+
         return {
           startTime: slot.startTime,
           endTime: slot.endTime,
-          available: !isBooked && !isPast,
+          available: !isBooked && !isPast && !isBlocked,
         };
       });
+
+      const blockedReason =
+        blockedLocationMap.get(facility.location.id) ?? null;
 
       return {
         id: facility.id,
@@ -237,10 +244,11 @@ export async function GET(request: Request) {
         price: calculatePlayerPrice(Number(facility.price)),
         sports: facility.sports,
         location: facility.location,
+        blockedReason,
         slots,
       };
     })
-    .filter((facility) => facility.slots.some((slot) => slot.available));
+    .filter((facility) => facility.slots.some((slot) => slot.available) || facility.blockedReason !== null);
 
   return NextResponse.json({
     date,

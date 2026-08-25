@@ -28,6 +28,7 @@ export type Facility = {
     latitude: number | null;
     longitude: number | null;
   };
+  blockedReason: string | null;
   slots: Slot[];
 };
 
