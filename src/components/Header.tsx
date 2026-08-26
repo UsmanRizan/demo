@@ -66,7 +66,9 @@ export default function Header({ user }: HeaderProps) {
       ? "/admin"
       : user?.role === "OWNER"
         ? "/owner"
-        : "/player";
+        : user?.role === "STAFF"
+          ? "/staff"
+          : "/player";
 
   const navLinks = user
     ? user.role === "PLAYER"
@@ -80,12 +82,16 @@ export default function Header({ user }: HeaderProps) {
             { href: "/owner/bookings", label: "Bookings" },
             { href: "/owner/earnings", label: "Earnings" },
           ]
-        : [
-            { href: "/admin", label: "Dashboard" },
-            { href: "/admin/users", label: "Users" },
-            { href: "/admin/sports", label: "Sports" },
-            { href: "/admin/withdrawals", label: "Withdrawals" },
-          ]
+        : user.role === "STAFF"
+          ? [
+              { href: "/staff", label: "Dashboard" },
+            ]
+          : [
+              { href: "/admin", label: "Dashboard" },
+              { href: "/admin/users", label: "Users" },
+              { href: "/admin/sports", label: "Sports" },
+              { href: "/admin/withdrawals", label: "Withdrawals" },
+            ]
     : [];
 
   return (

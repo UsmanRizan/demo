@@ -46,6 +46,8 @@ export default function LoginPage() {
         router.push("/admin");
       } else if (data.user.role === "OWNER") {
         router.push("/owner");
+      } else if (data.user.role === "STAFF") {
+        router.push("/staff");
       } else {
         router.push("/player");
       }
@@ -108,6 +110,8 @@ export default function LoginPage() {
         router.push("/admin");
       } else if (data.user.role === "OWNER") {
         router.push("/owner");
+      } else if (data.user.role === "STAFF") {
+        router.push("/staff");
       } else {
         router.push("/player");
       }

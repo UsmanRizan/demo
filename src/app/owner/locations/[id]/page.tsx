@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSportIcon } from "@/lib/sport-icons";
 import AvailabilityEditor from "@/components/owner/AvailabilityEditor";
 import BlockedDatesEditor from "@/components/owner/BlockedDatesEditor";
+import StaffManager from "@/components/owner/StaffManager";
 
 type PageProps = {
   params: Promise<{
@@ -74,6 +75,10 @@ export default async function LocationPage({ params }: PageProps) {
 
               <section className="mt-8">
                 <BlockedDatesEditor locationId={location.id} />
+              </section>
+
+              <section className="mt-8">
+                <StaffManager locationId={location.id} />
               </section>
             </div>
 

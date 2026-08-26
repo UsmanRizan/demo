@@ -25,6 +25,7 @@ model User {
   address            UserAddress?
   wallet             Wallet?
   withdrawalRequests WithdrawalRequest[]
+  staffLocations     LocationStaff[]
 }
 
 model Sport {
@@ -56,6 +57,7 @@ model Location {
   facilities     Facility[]
   availabilities Availability[]
   blockedDates   BlockedDate[]
+  staff          LocationStaff[]
 
   @@index([ownerId])
   @@index([city])
@@ -142,6 +144,7 @@ enum UserRole {
   PLAYER
   OWNER
   ADMIN
+  STAFF
 }
 
 enum PaymentStatus {
@@ -214,6 +217,20 @@ model WithdrawalRequest {
 
   @@index([ownerId])
   @@index([status])
+}
+
+model LocationStaff {
+  id         String   @id @default(cuid())
+  locationId String
+  staffId    String
+  createdAt  DateTime @default(now())
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  staff    User     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, staffId])
+  @@index([locationId])
+  @@index([staffId])
 }
 
 enum WithdrawalStatus {
