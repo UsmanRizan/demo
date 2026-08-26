@@ -34,7 +34,10 @@ export default async function PlayerPage() {
   const completedBookings = await prisma.booking.count({
     where: {
       playerId: user.id,
-      status: "COMPLETED",
+      OR: [
+        { status: "COMPLETED" },
+        { status: "CONFIRMED", endAt: { lt: new Date() } },
+      ],
     },
   });
 

@@ -38,6 +38,16 @@ export async function POST(request: Request) {
         paymentStatus: true,
         totalPrice: true,
         expiresAt: true,
+        startAt: true,
+        endAt: true,
+        facility: {
+          select: {
+            price: true,
+            location: {
+              select: { ownerId: true },
+            },
+          },
+        },
       },
     });
 
@@ -124,6 +134,36 @@ export async function POST(request: Request) {
         },
       });
     });
+
+    // Credit owner's wallet with earnings
+    try {
+      const start = new Date(booking.startAt);
+      const end = new Date(booking.endAt);
+      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      const ownerPrice = Number(booking.facility.price);
+      const ownerEarnings = hours * ownerPrice;
+      const ownerId = booking.facility.location.ownerId;
+
+      if (ownerEarnings > 0 && ownerId) {
+        const ownerWallet = await prisma.wallet.upsert({
+          where: { userId: ownerId },
+          create: { userId: ownerId, balance: ownerEarnings },
+          update: { balance: { increment: ownerEarnings } },
+        });
+
+        await prisma.walletTransaction.create({
+          data: {
+            walletId: ownerWallet.id,
+            amount: ownerEarnings,
+            type: "CREDIT",
+            bookingId: booking.id,
+            note: "Booking earning",
+          },
+        });
+      }
+    } catch (walletError) {
+      console.error("Owner wallet credit failed (payment still recorded):", walletError);
+    }
 
     return NextResponse.json({
       success: true,

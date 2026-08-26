@@ -84,6 +84,7 @@ export default function Header({ user }: HeaderProps) {
             { href: "/admin", label: "Dashboard" },
             { href: "/admin/users", label: "Users" },
             { href: "/admin/sports", label: "Sports" },
+            { href: "/admin/withdrawals", label: "Withdrawals" },
           ]
     : [];
 

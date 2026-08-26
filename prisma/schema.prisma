@@ -20,10 +20,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  locations Location[]
-  bookings  Booking[]
-  address   UserAddress?
-  wallet    Wallet?
+  locations          Location[]
+  bookings           Booking[]
+  address            UserAddress?
+  wallet             Wallet?
+  withdrawalRequests WithdrawalRequest[]
 }
 
 model Sport {
@@ -195,6 +196,30 @@ model Wallet {
 
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
+}
+
+model WithdrawalRequest {
+  id              String             @id @default(cuid())
+  ownerId         String
+  amount          Decimal            @db.Decimal(10, 2)
+  bankName        String
+  accountNumber   String
+  accountHolderName String
+  status          WithdrawalStatus   @default(PENDING)
+  adminNote       String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model WalletTransaction {

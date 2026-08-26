@@ -7,7 +7,7 @@ import EarningsClient from "./EarningsClient";
 export default async function OwnerEarningsPage() {
   const user = await requireOwner();
 
-  const [rawBookings, wallet] = await Promise.all([
+  const [rawBookings, wallet, rawWithdrawals] = await Promise.all([
     prisma.booking.findMany({
       where: {
         facility: {
@@ -15,8 +15,11 @@ export default async function OwnerEarningsPage() {
             ownerId: user.id,
           },
         },
-        status: "COMPLETED",
         paymentStatus: "PAID",
+        OR: [
+          { status: "COMPLETED" },
+          { status: "CONFIRMED", endAt: { lt: new Date() } },
+        ],
       },
       include: {
         facility: {
@@ -40,6 +43,10 @@ export default async function OwnerEarningsPage() {
           take: 20,
         },
       },
+    }),
+    prisma.withdrawalRequest.findMany({
+      where: { ownerId: user.id },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -71,6 +78,18 @@ export default async function OwnerEarningsPage() {
       }
     : null;
 
+  const withdrawals = rawWithdrawals.map((w) => ({
+    id: w.id,
+    amount: w.amount.toString(),
+    bankName: w.bankName,
+    accountNumber: w.accountNumber,
+    accountHolderName: w.accountHolderName,
+    status: w.status,
+    adminNote: w.adminNote,
+    createdAt: w.createdAt.toISOString(),
+    updatedAt: w.updatedAt.toISOString(),
+  }));
+
   return (
     <main className="min-h-screen bg-slate-50">
       <Header user={user} />
@@ -83,7 +102,7 @@ export default async function OwnerEarningsPage() {
           </p>
         </div>
 
-        <EarningsClient bookings={bookings} wallet={walletData} />
+        <EarningsClient bookings={bookings} wallet={walletData} withdrawals={withdrawals} />
       </div>
 
       <Footer />
