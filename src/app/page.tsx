@@ -120,7 +120,7 @@ export default async function HomePage() {
             </div>
             <div className="mt-6">
               <a
-                href="/owner"
+                href={user ? "/owner" : "/contact-owner"}
                 className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
               >
                 List Your Facility
@@ -223,7 +223,7 @@ export default async function HomePage() {
             </div>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a
-                href="/owner/locations/new"
+                href={user ? "/owner/locations/new" : "/contact-owner"}
                 className="inline-flex items-center rounded-xl border border-indigo-400 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500"
               >
                 List Your Facility

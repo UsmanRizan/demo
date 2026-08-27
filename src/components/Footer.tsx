@@ -44,17 +44,17 @@ export default function Footer() {
             <h3 className="text-sm font-semibold text-slate-900">For Facility Owners</h3>
             <ul className="mt-3 space-y-2">
               <li>
-                <a href="/owner" className="text-sm text-slate-500 hover:text-indigo-600 transition-colors">
+                <a href="/contact-owner" className="text-sm text-slate-500 hover:text-indigo-600 transition-colors">
                   Owner Dashboard
                 </a>
               </li>
               <li>
-                <a href="/owner/locations/new" className="text-sm text-slate-500 hover:text-indigo-600 transition-colors">
+                <a href="/contact-owner" className="text-sm text-slate-500 hover:text-indigo-600 transition-colors">
                   List Your Facility
                 </a>
               </li>
               <li>
-                <a href="/owner/bookings" className="text-sm text-slate-500 hover:text-indigo-600 transition-colors">
+                <a href="/contact-owner" className="text-sm text-slate-500 hover:text-indigo-600 transition-colors">
                   Manage Bookings
                 </a>
               </li>
