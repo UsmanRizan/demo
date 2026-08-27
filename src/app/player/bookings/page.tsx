@@ -23,7 +23,7 @@ export default async function PlayerBookingsPage() {
       facility: {
         include: {
           sports: { select: { name: true } },
-          location: { select: { name: true, address: true, city: true } },
+          location: { select: { name: true, address: true, city: true, latitude: true, longitude: true } },
         },
       },
     },

@@ -19,7 +19,7 @@ export default async function OwnerBookingsPage() {
         facility: {
           include: {
             sports: { select: { id: true, name: true } },
-            location: { select: { id: true, name: true, address: true, city: true } },
+            location: { select: { id: true, name: true, address: true, city: true, latitude: true, longitude: true } },
           },
         },
         player: {
