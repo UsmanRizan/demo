@@ -106,7 +106,7 @@ export default function Header({ user }: HeaderProps) {
         </a>
 
         {/* Desktop nav links */}
-        {user && (
+        {user ? (
           <nav className="hidden items-center gap-1 sm:flex">
             {navLinks.map((link) => (
               <a
@@ -117,6 +117,21 @@ export default function Header({ user }: HeaderProps) {
                 {link.label}
               </a>
             ))}
+          </nav>
+        ) : (
+          <nav className="hidden items-center gap-1 sm:flex">
+            <a
+              href="/help"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            >
+              Help
+            </a>
+            <a
+              href="/contact"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            >
+              Contact
+            </a>
           </nav>
         )}
 
@@ -219,7 +234,22 @@ export default function Header({ user }: HeaderProps) {
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 pt-2">
+            <div className="flex flex-col gap-1 pt-2">
+              <a
+                href="/help"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                Help
+              </a>
+              <a
+                href="/contact"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                Contact
+              </a>
+              <div className="my-1 h-px bg-slate-100" />
               <a
                 href="/login"
                 className="block w-full rounded-lg bg-indigo-600 px-4 py-3 text-center text-sm font-medium text-white"
