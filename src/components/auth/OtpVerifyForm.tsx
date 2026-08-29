@@ -27,27 +27,27 @@ export default function OtpVerifyForm({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center bg-white px-4 sm:px-6">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <a href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+          <a href="/" className="inline-flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center bg-black text-lg font-bold text-white">
               B
             </div>
-            <span className="text-2xl font-bold text-slate-900">BookMyPlay</span>
+            <span className="text-2xl font-bold uppercase tracking-tight">BookMyPlay</span>
           </a>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
-          <h1 className="text-xl font-semibold text-slate-900">Verify OTP</h1>
+        <div className="border-[3px] border-black bg-white p-6 sm:p-8">
+          <h1 className="text-xl font-bold uppercase">Verify OTP</h1>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-gray-500">
             Enter the 6-digit code sent to {phone}.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">OTP</label>
+              <label className="mb-1.5 block text-sm font-bold uppercase">OTP</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -55,7 +55,7 @@ export default function OtpVerifyForm({
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="123456"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-center text-lg font-semibold tracking-[0.5em] outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full border-[2px] border-black bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.5em] outline-none transition-colors focus:bg-gray-100"
                 required
               />
             </div>
@@ -63,20 +63,20 @@ export default function OtpVerifyForm({
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+              className="w-full border-[3px] border-black bg-black px-5 py-3 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black disabled:opacity-50"
             >
               {loading ? "Verifying..." : "Verify OTP"}
             </button>
           </form>
 
           {message && (
-            <p className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-700">
+            <p className="mt-4 border-[2px] border-black bg-white p-3 text-sm text-black">
               {message}
             </p>
           )}
 
           {error && (
-            <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+            <p className="mt-4 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">
               {error}
             </p>
           )}
@@ -84,7 +84,7 @@ export default function OtpVerifyForm({
           <button
             type="button"
             onClick={onChangePhone}
-            className="mt-4 block w-full text-center text-sm text-slate-500 hover:text-slate-700"
+            className="mt-4 block w-full text-center text-sm text-gray-500 hover:text-black"
           >
             Change phone number
           </button>

@@ -128,119 +128,119 @@ export default function PlayerProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
+      <main className="min-h-screen bg-white px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-2xl flex items-center gap-3">
-          <svg className="spinner h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none">
+          <svg className="spinner h-5 w-5 text-black" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <span className="text-sm text-slate-500">Loading profile...</span>
+          <span className="text-sm text-gray-500">Loading profile...</span>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-white px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-2xl">
-        <a href="/player" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-700">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        <a href="/player" className="inline-flex items-center gap-1 text-sm font-bold uppercase text-gray-500 hover:text-black">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="square" strokeLinejoin="miter" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
           Back to Dashboard
         </a>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Your Profile</h1>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="mt-6 border-[3px] border-black bg-white p-6 sm:p-8">
+          <h1 className="text-2xl font-bold uppercase sm:text-3xl">Your Profile</h1>
+          <p className="mt-1 text-sm text-gray-500">
             These details will be used when you make a payment.
           </p>
 
           <form onSubmit={saveProfile} className="mt-6 space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">First name</label>
+                <label className="mb-1.5 block text-sm font-bold uppercase">First name</label>
                 <input
                   value={firstName}
                   onChange={(event) => setFirstName(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                   required
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Last name</label>
+                <label className="mb-1.5 block text-sm font-bold uppercase">Last name</label>
                 <input
                   value={lastName}
                   onChange={(event) => setLastName(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Phone</label>
+              <label className="mb-1.5 block text-sm font-bold uppercase">Phone</label>
               <input
                 value={phone}
                 readOnly
-                className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-500"
+                className="w-full border-[2px] border-gray-300 bg-gray-100 px-4 py-3 text-sm text-gray-500"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+              <label className="mb-1.5 block text-sm font-bold uppercase">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Address line 1</label>
+              <label className="mb-1.5 block text-sm font-bold uppercase">Address line 1</label>
               <input
                 value={addressLine1}
                 onChange={(event) => setAddressLine1(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Address line 2</label>
+              <label className="mb-1.5 block text-sm font-bold uppercase">Address line 2</label>
               <input
                 value={addressLine2}
                 onChange={(event) => setAddressLine2(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
               />
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">City</label>
+                <label className="mb-1.5 block text-sm font-bold uppercase">City</label>
                 <input
                   value={city}
                   onChange={(event) => setCity(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                   required
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Country</label>
+                <label className="mb-1.5 block text-sm font-bold uppercase">Country</label>
                 <input
                   value={country}
                   onChange={(event) => setCountry(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                   required
                 />
               </div>
             </div>
 
             {message && (
-              <div className={`rounded-xl p-3 text-sm ${
-                message.includes("success") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+              <div className={`border-[2px] p-3 text-sm ${
+                message.includes("success") ? "border-black bg-white text-black" : "border-red-600 bg-white text-red-600"
               }`}>
                 {message}
               </div>
@@ -249,15 +249,15 @@ export default function PlayerProfilePage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+              className="w-full border-[3px] border-black bg-black px-5 py-3 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save Profile"}
             </button>
           </form>
 
           {/* Password Section */}
-          <div className="mt-10 border-t border-slate-200 pt-8">
-            <h2 className="text-xl font-bold text-slate-900">Password</h2>
+          <div className="mt-10 border-t-[2px] border-black pt-8">
+            <h2 className="text-xl font-bold uppercase">Password</h2>
 
             {hasPassword ? (
               <>
@@ -265,46 +265,46 @@ export default function PlayerProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowPasswordForm(true)}
-                    className="mt-4 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
+                    className="mt-4 border-[2px] border-black px-4 py-2.5 text-sm font-bold uppercase text-black transition-all hover:bg-black hover:text-white"
                   >
                     Change password
                   </button>
                 ) : (
                   <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-slate-700">Current password</label>
+                      <label className="mb-1.5 block text-sm font-bold uppercase">Current password</label>
                       <input
                         type="password"
                         value={currentPassword}
                         onChange={(event) => setCurrentPassword(event.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                         required
                       />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-slate-700">New password</label>
+                      <label className="mb-1.5 block text-sm font-bold uppercase">New password</label>
                       <input
                         type="password"
                         value={newPassword}
                         onChange={(event) => setNewPassword(event.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                         required
                       />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm new password</label>
+                      <label className="mb-1.5 block text-sm font-bold uppercase">Confirm new password</label>
                       <input
                         type="password"
                         value={confirmPassword}
                         onChange={(event) => setConfirmPassword(event.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                         required
                       />
                     </div>
 
                     {passwordMessage && (
-                      <div className={`rounded-xl p-3 text-sm ${
-                        passwordMessage.includes("success") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                      <div className={`border-[2px] p-3 text-sm ${
+                        passwordMessage.includes("success") ? "border-black bg-white text-black" : "border-red-600 bg-white text-red-600"
                       }`}>
                         {passwordMessage}
                       </div>
@@ -314,7 +314,7 @@ export default function PlayerProfilePage() {
                       <button
                         type="submit"
                         disabled={passwordLoading}
-                        className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+                        className="flex-1 border-[3px] border-black bg-black px-4 py-3 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black disabled:opacity-50"
                       >
                         {passwordLoading ? "Saving..." : "Update password"}
                       </button>
@@ -327,7 +327,7 @@ export default function PlayerProfilePage() {
                           setNewPassword("");
                           setConfirmPassword("");
                         }}
-                        className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50"
+                        className="border-[2px] border-black px-4 py-3 text-sm font-bold uppercase text-black transition-all hover:bg-black hover:text-white"
                       >
                         Cancel
                       </button>
@@ -336,7 +336,7 @@ export default function PlayerProfilePage() {
                 )}
               </>
             ) : (
-              <p className="mt-4 text-sm text-slate-500">
+              <p className="mt-4 text-sm text-gray-500">
                 You haven&apos;t set a password yet. Use OTP to sign in, or set one now from the login page.
               </p>
             )}

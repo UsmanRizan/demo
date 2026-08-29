@@ -40,29 +40,29 @@ export default function SignInForm({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center bg-white px-4 sm:px-6">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <a href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+          <a href="/" className="inline-flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center bg-black text-lg font-bold text-white">
               B
             </div>
-            <span className="text-2xl font-bold text-slate-900">BookMyPlay</span>
+            <span className="text-2xl font-bold uppercase tracking-tight">BookMyPlay</span>
           </a>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
-          <h1 className="text-xl font-semibold text-slate-900">Sign in to continue</h1>
+        <div className="border-[3px] border-black bg-white p-6 sm:p-8">
+          <h1 className="text-xl font-bold uppercase">Sign in to continue</h1>
 
           {/* Tabs */}
-          <div className="mt-5 flex border-b border-slate-200">
+          <div className="mt-5 flex border-b-[3px] border-black">
             <button
               type="button"
               onClick={() => setAuthTab("password")}
-              className={`flex-1 pb-3 text-sm font-medium transition ${
+              className={`flex-1 pb-3 text-sm font-bold uppercase transition ${
                 authTab === "password"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "border-b-[3px] border-black text-black -mb-[3px]"
+                  : "text-gray-500 hover:text-black"
               }`}
             >
               Password
@@ -70,10 +70,10 @@ export default function SignInForm({
             <button
               type="button"
               onClick={() => setAuthTab("otp")}
-              className={`flex-1 pb-3 text-sm font-medium transition ${
+              className={`flex-1 pb-3 text-sm font-bold uppercase transition ${
                 authTab === "otp"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "border-b-[3px] border-black text-black -mb-[3px]"
+                  : "text-gray-500 hover:text-black"
               }`}
             >
               OTP
@@ -82,13 +82,13 @@ export default function SignInForm({
 
           {authTab === "password" ? (
             <>
-              <p className="mt-5 text-sm text-slate-500">
+              <p className="mt-5 text-sm text-gray-500">
                 Enter your phone number and password to sign in.
               </p>
 
               <form onSubmit={handlePasswordSubmit} className="mt-5 space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-bold uppercase">
                     Phone number
                   </label>
                   <input
@@ -96,13 +96,13 @@ export default function SignInForm({
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     placeholder="+94 77 123 4567"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-bold uppercase">
                     Password
                   </label>
                   <input
@@ -110,7 +110,7 @@ export default function SignInForm({
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Enter your password"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                     required
                   />
                 </div>
@@ -118,27 +118,27 @@ export default function SignInForm({
                 <button
                   type="submit"
                   disabled={passwordLoading}
-                  className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+                  className="w-full border-[3px] border-black bg-black px-5 py-3 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black disabled:opacity-50"
                 >
                   {passwordLoading ? "Signing in..." : "Sign in"}
                 </button>
               </form>
 
               {passwordMessage && (
-                <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+                <p className="mt-4 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">
                   {passwordMessage}
                 </p>
               )}
             </>
           ) : (
             <>
-              <p className="mt-5 text-sm text-slate-500">
+              <p className="mt-5 text-sm text-gray-500">
                 Enter your phone number to receive a one-time code.
               </p>
 
               <form onSubmit={handleOtpSubmit} className="mt-5 space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-bold uppercase">
                     Phone number
                   </label>
                   <input
@@ -146,7 +146,7 @@ export default function SignInForm({
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     placeholder="+94 77 123 4567"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full border-[2px] border-black bg-white px-4 py-3 text-sm outline-none transition-colors focus:bg-gray-100"
                     required
                   />
                 </div>
@@ -154,14 +154,14 @@ export default function SignInForm({
                 <button
                   type="submit"
                   disabled={otpLoading}
-                  className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none"
+                  className="w-full border-[3px] border-black bg-black px-5 py-3 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black disabled:opacity-50"
                 >
                   {otpLoading ? "Sending..." : "Send OTP"}
                 </button>
               </form>
 
               {otpMessage && (
-                <p className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-700">
+                <p className="mt-4 border-[2px] border-black bg-white p-3 text-sm text-black">
                   {otpMessage}
                 </p>
               )}
@@ -169,7 +169,7 @@ export default function SignInForm({
           )}
 
           {error && (
-            <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+            <p className="mt-4 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">
               {error}
             </p>
           )}
@@ -178,7 +178,7 @@ export default function SignInForm({
             <button
               type="button"
               onClick={onCancel}
-              className="mt-4 block w-full text-center text-sm text-slate-500 hover:text-slate-700"
+              className="mt-4 block w-full text-center text-sm text-gray-500 hover:text-black"
             >
               Cancel
             </button>

@@ -95,14 +95,14 @@ export default function Header({ user }: HeaderProps) {
     : [];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b-[3px] border-black bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand */}
-        <a href={user ? dashboardHref : "/"} className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
+        <a href={user ? dashboardHref : "/"} className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center bg-black text-sm font-bold text-white">
             B
           </div>
-          <span className="text-lg font-bold text-slate-900">BookMyPlay</span>
+          <span className="text-lg font-bold uppercase tracking-tight">BookMyPlay</span>
         </a>
 
         {/* Desktop nav links */}
@@ -112,7 +112,7 @@ export default function Header({ user }: HeaderProps) {
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                className="px-3 py-2 text-sm font-bold uppercase tracking-wide text-black hover:bg-black hover:text-white transition-colors"
               >
                 {link.label}
               </a>
@@ -122,13 +122,13 @@ export default function Header({ user }: HeaderProps) {
           <nav className="hidden items-center gap-1 sm:flex">
             <a
               href="/help"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              className="px-3 py-2 text-sm font-bold uppercase tracking-wide text-black hover:bg-black hover:text-white transition-colors"
             >
               Help
             </a>
             <a
               href="/contact"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              className="px-3 py-2 text-sm font-bold uppercase tracking-wide text-black hover:bg-black hover:text-white transition-colors"
             >
               Contact
             </a>
@@ -140,19 +140,19 @@ export default function Header({ user }: HeaderProps) {
           <div className="hidden items-center gap-3 sm:flex">
             <a
               href={dashboardHref}
-              className="flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100"
+              className="flex items-center gap-2 border-[2px] border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors"
             >
               {initials && (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700">
+                <span className="flex h-6 w-6 items-center justify-center bg-black text-[10px] font-bold text-white">
                   {initials}
                 </span>
               )}
-              <span className="text-sm font-medium text-slate-700">{displayName}</span>
+              <span className="text-sm font-bold uppercase">{displayName}</span>
             </a>
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              className="border-[2px] border-black px-3 py-1.5 text-sm font-bold uppercase text-black transition-colors hover:bg-black hover:text-white disabled:opacity-50"
             >
               {isLoggingOut ? "Signing out..." : "Sign out"}
             </button>
@@ -161,13 +161,13 @@ export default function Header({ user }: HeaderProps) {
           <div className="hidden items-center gap-3 sm:flex">
             <a
               href="/login"
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              className="px-4 py-2 text-sm font-bold uppercase text-black border-[2px] border-black hover:bg-black hover:text-white transition-colors"
             >
               Sign in
             </a>
             <a
               href="/login"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="bg-black px-4 py-2 text-sm font-bold uppercase text-white border-[2px] border-black hover:bg-white hover:text-black transition-colors"
             >
               Get Started
             </a>
@@ -178,14 +178,14 @@ export default function Header({ user }: HeaderProps) {
         <button
           type="button"
           onClick={() => setMobileOpen((prev) => !prev)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 sm:hidden"
+          className="flex h-10 w-10 items-center justify-center border-[2px] border-black text-black transition-colors hover:bg-black hover:text-white sm:hidden"
           aria-label="Toggle menu"
         >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             {mobileOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="square" strokeLinejoin="miter" d="M6 18L18 6M6 6l12 12" />
             ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+              <path strokeLinecap="square" strokeLinejoin="miter" d="M4 7h16M4 12h16M4 17h16" />
             )}
           </svg>
         </button>
@@ -193,42 +193,40 @@ export default function Header({ user }: HeaderProps) {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-slate-200 bg-white px-4 pb-4 pt-3 sm:hidden">
+        <div className="border-t-[3px] border-black bg-white px-4 pb-4 pt-3 sm:hidden">
           {user ? (
             <div className="flex flex-col gap-1">
               {/* User info */}
-              <div className="flex items-center gap-3 px-3 py-3">
+              <div className="flex items-center gap-3 border-b-[2px] border-black px-3 py-3">
                 {initials && (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                  <span className="flex h-8 w-8 items-center justify-center bg-black text-xs font-bold text-white">
                     {initials}
                   </span>
                 )}
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{displayName}</p>
-                  <p className="text-xs text-slate-500">{user.role}</p>
+                  <p className="text-sm font-bold uppercase">{displayName}</p>
+                  <p className="text-xs text-gray-500">{user.role}</p>
                 </div>
               </div>
-
-              <div className="my-1 h-px bg-slate-100" />
 
               {/* Nav links */}
               {navLinks.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                  className="px-3 py-2.5 text-sm font-bold uppercase text-black hover:bg-black hover:text-white transition-colors"
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
                 </a>
               ))}
 
-              <div className="my-1 h-px bg-slate-100" />
+              <div className="my-1 border-t-[2px] border-black" />
 
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                className="w-full px-3 py-2.5 text-left text-sm font-bold uppercase text-black border-[2px] border-red-600 hover:bg-red-600 hover:text-white transition-colors disabled:opacity-50"
               >
                 {isLoggingOut ? "Signing out..." : "Sign out"}
               </button>
@@ -237,22 +235,22 @@ export default function Header({ user }: HeaderProps) {
             <div className="flex flex-col gap-1 pt-2">
               <a
                 href="/help"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                className="px-3 py-2.5 text-sm font-bold uppercase text-black hover:bg-black hover:text-white transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 Help
               </a>
               <a
                 href="/contact"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                className="px-3 py-2.5 text-sm font-bold uppercase text-black hover:bg-black hover:text-white transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 Contact
               </a>
-              <div className="my-1 h-px bg-slate-100" />
+              <div className="my-1 border-t-[2px] border-black" />
               <a
                 href="/login"
-                className="block w-full rounded-lg bg-indigo-600 px-4 py-3 text-center text-sm font-medium text-white"
+                className="block w-full bg-black px-4 py-3 text-center text-sm font-bold uppercase text-white"
                 onClick={() => setMobileOpen(false)}
               >
                 Sign in

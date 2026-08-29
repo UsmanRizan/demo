@@ -352,16 +352,16 @@ function CheckoutContent() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
+      <main className="flex min-h-screen items-center justify-center bg-white px-4 sm:px-6">
+        <div className="w-full max-w-md border-[3px] border-black bg-white p-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center">
-            <svg className="spinner h-8 w-8 text-indigo-600" viewBox="0 0 24 24" fill="none">
+            <svg className="spinner h-8 w-8 text-black" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
           </div>
-          <h1 className="mt-4 text-lg font-semibold text-slate-900">Preparing payment...</h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <h1 className="mt-4 text-lg font-bold uppercase">Preparing payment...</h1>
+          <p className="mt-2 text-sm text-gray-500">
             Checking availability and creating your booking.
           </p>
         </div>
@@ -422,29 +422,29 @@ function CheckoutContent() {
     const canPayWithWallet = balance >= total && total > 0;
 
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
+      <main className="flex min-h-screen items-center justify-center bg-white px-4 sm:px-6">
         <div className="w-full max-w-md">
           {/* Brand */}
           <div className="mb-8 text-center">
-            <a href="/" className="inline-flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
+            <a href="/" className="inline-flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center bg-black text-lg font-bold text-white">
                 B
               </div>
-              <span className="text-2xl font-bold text-slate-900">BookMyPlay</span>
+              <span className="text-2xl font-bold uppercase tracking-tight">BookMyPlay</span>
             </a>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
-            <h1 className="text-xl font-semibold text-slate-900">Choose payment method</h1>
+          <div className="border-[3px] border-black bg-white p-6 sm:p-8">
+            <h1 className="text-xl font-bold uppercase">Choose payment method</h1>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-gray-500">
               Select how you&apos;d like to pay for your booking.
             </p>
 
             {bookingTotal && (
-              <div className="mt-4 rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-medium text-slate-500">Booking total</p>
-                <p className="mt-0.5 text-2xl font-bold text-slate-900">{formatCurrency(bookingTotal)}</p>
+              <div className="mt-4 border-[2px] border-black bg-white p-4">
+                <p className="text-xs font-bold uppercase text-gray-500">Booking total</p>
+                <p className="mt-0.5 text-2xl font-bold">{formatCurrency(bookingTotal)}</p>
               </div>
             )}
 
@@ -454,27 +454,27 @@ function CheckoutContent() {
                 type="button"
                 disabled={!canPayWithWallet || walletPaymentLoading}
                 onClick={handleWalletPayment}
-                className={`w-full rounded-xl border-2 p-4 text-left transition ${
+                className={`w-full border-[2px] p-4 text-left transition ${
                   canPayWithWallet
-                    ? "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/50"
-                    : "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                    ? "border-black hover:bg-gray-100"
+                    : "cursor-not-allowed border-gray-200 bg-gray-100 opacity-60"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-slate-900">Pay with Wallet</p>
-                    <p className="mt-0.5 text-sm text-slate-500">
+                    <p className="font-bold uppercase">Pay with Wallet</p>
+                    <p className="mt-0.5 text-sm text-gray-500">
                       {walletLoading
                         ? "Loading balance..."
                         : `Balance: ${walletBalance !== null ? formatCurrency(walletBalance) : "Rs. 0"}`}
                     </p>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-lg">
+                  <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-white text-lg">
                     💰
                   </div>
                 </div>
                 {!canPayWithWallet && !walletLoading && total > 0 && (
-                  <p className="mt-2 text-xs text-red-500">
+                  <p className="mt-2 text-xs text-red-600 uppercase font-bold">
                     Insufficient balance. You need {formatCurrency(total)} but have{" "}
                     {formatCurrency(balance)}.
                   </p>
@@ -486,16 +486,16 @@ function CheckoutContent() {
                 type="button"
                 disabled={walletPaymentLoading}
                 onClick={() => setStep("payment")}
-                className="w-full rounded-xl border-2 border-slate-200 p-4 text-left transition hover:border-indigo-300 hover:bg-indigo-50/30"
+                className="w-full border-[2px] border-black p-4 text-left transition hover:bg-gray-100"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-slate-900">Pay with Card</p>
-                    <p className="mt-0.5 text-sm text-slate-500">
+                    <p className="font-bold uppercase">Pay with Card</p>
+                    <p className="mt-0.5 text-sm text-gray-500">
                       Credit/debit card via PayHere
                     </p>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-lg">
+                  <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-white text-lg">
                     💳
                   </div>
                 </div>
@@ -503,17 +503,17 @@ function CheckoutContent() {
             </div>
 
             {walletError && (
-              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">{walletError}</p>
+              <p className="mt-3 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">{walletError}</p>
             )}
 
             {error && (
-              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>
+              <p className="mt-3 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">{error}</p>
             )}
 
             <button
               type="button"
               onClick={cancelBooking}
-              className="mt-4 block w-full text-center text-sm text-slate-500 hover:text-slate-700"
+              className="mt-4 block w-full text-center text-sm text-gray-500 hover:text-black"
             >
               Cancel booking
             </button>
@@ -535,15 +535,15 @@ function CheckoutContent() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
-        <h1 className="text-lg font-semibold text-slate-900">Something went wrong</h1>
-        <p className="mt-2 text-sm text-slate-500">
+    <main className="flex min-h-screen items-center justify-center bg-white px-4 sm:px-6">
+      <div className="w-full max-w-md border-[3px] border-black bg-white p-8 text-center">
+        <h1 className="text-lg font-bold uppercase">Something went wrong</h1>
+        <p className="mt-2 text-sm text-gray-500">
           Please try again.
         </p>
         <a
           href="/player/find-booking"
-          className="mt-4 inline-flex items-center rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-indigo-700"
+          className="mt-4 inline-flex items-center border-[3px] border-black bg-black px-5 py-3 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black"
         >
           Find a Court
         </a>
@@ -556,16 +556,16 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/20 px-4 sm:px-6">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
+        <main className="flex min-h-screen items-center justify-center bg-white px-4 sm:px-6">
+          <div className="w-full max-w-md border-[3px] border-black bg-white p-8 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center">
-              <svg className="spinner h-8 w-8 text-indigo-600" viewBox="0 0 24 24" fill="none">
+              <svg className="spinner h-8 w-8 text-black" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             </div>
-            <h1 className="mt-4 text-lg font-semibold text-slate-900">Preparing payment...</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <h1 className="mt-4 text-lg font-bold uppercase">Preparing payment...</h1>
+            <p className="mt-2 text-sm text-gray-500">
               Checking availability and creating your booking.
             </p>
           </div>

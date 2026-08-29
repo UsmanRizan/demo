@@ -278,16 +278,16 @@ function FindBookingContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+    <main className="min-h-screen bg-white">
+      <header className="sticky top-0 z-40 border-b-[3px] border-black bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <a href="/player" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
+          <a href="/player" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center bg-black text-sm font-bold text-white">
               B
             </div>
-            <span className="text-lg font-bold text-slate-900">BookMyPlay</span>
+            <span className="text-lg font-bold uppercase tracking-tight">BookMyPlay</span>
           </a>
-          <a href="/player" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+          <a href="/player" className="text-sm font-bold uppercase text-black hover:text-gray-600">
             My Dashboard
           </a>
         </div>
@@ -305,7 +305,7 @@ function FindBookingContent() {
               <span
                 className={
                   step >= item.number
-                    ? "font-semibold text-black"
+                    ? "font-bold uppercase text-black"
                     : "text-gray-400"
                 }
               >
@@ -318,7 +318,7 @@ function FindBookingContent() {
         </div>
 
         {error && (
-          <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+          <div className="mt-6 border-[2px] border-red-600 bg-white p-4 text-sm text-red-600">
             {error}
           </div>
         )}
@@ -327,7 +327,7 @@ function FindBookingContent() {
           <button
             type="button"
             onClick={goBack}
-            className="mt-6 text-sm text-gray-600"
+            className="mt-6 text-sm font-bold uppercase text-gray-600 hover:text-black"
           >
             ← Back
           </button>

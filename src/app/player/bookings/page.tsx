@@ -55,22 +55,22 @@ export default async function PlayerBookingsPage() {
   const walletBalance = wallet ? Number(wallet.balance) : 0;
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-white">
       <Header user={user} />
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Bookings</h1>
-          <p className="mt-1 text-slate-500">
+          <h1 className="text-2xl font-bold uppercase sm:text-3xl">My Bookings</h1>
+          <p className="mt-1 text-gray-500">
             View and manage your sports facility bookings.
           </p>
         </div>
 
         {/* Wallet Balance */}
-        <div className="mb-6 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-500 to-indigo-600 p-5 text-white shadow-lg shadow-indigo-200">
+        <div className="mb-6 border-[3px] border-black bg-black p-5 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-indigo-100">Wallet Balance</p>
+              <p className="text-sm font-bold uppercase text-gray-400">Wallet Balance</p>
               <p className="mt-0.5 text-2xl font-bold">
                 Rs. {walletBalance.toLocaleString("en-LK", { minimumFractionDigits: 2 })}
               </p>
