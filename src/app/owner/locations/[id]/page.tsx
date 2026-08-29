@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSportIcon } from "@/lib/sport-icons";
 import AvailabilityEditor from "@/components/owner/AvailabilityEditor";
 import BlockedDatesEditor from "@/components/owner/BlockedDatesEditor";
+import PricingRulesEditor from "@/components/owner/PricingRulesEditor";
 import StaffManager from "@/components/owner/StaffManager";
 
 type PageProps = {
@@ -86,6 +87,10 @@ export default async function LocationPage({ params }: PageProps) {
 
               <section className="mt-8">
                 <AvailabilityEditor locationId={location.id} />
+              </section>
+
+              <section className="mt-8">
+                <PricingRulesEditor locationId={location.id} />
               </section>
 
               <section className="mt-8">

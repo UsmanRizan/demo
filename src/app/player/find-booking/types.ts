@@ -10,6 +10,8 @@ export type Slot = {
   startTime: string;
   endTime: string;
   available: boolean;
+  pricePerHour?: number;
+  surgePercentage?: number;
 };
 
 export type Facility = {
@@ -30,6 +32,7 @@ export type Facility = {
   };
   blockedReason: string | null;
   slots: Slot[];
+  avgSurge?: number;
 };
 
 export type Coordinates = {

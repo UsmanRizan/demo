@@ -36,6 +36,8 @@ export default function AvailabilityEditor({
   const [availability, setAvailability] =
     useState<Availability[]>(defaultAvailability);
 
+  const [use24Hour, setUse24Hour] = useState(true);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -133,9 +135,22 @@ export default function AvailabilityEditor({
     );
   }
 
+  // lang attribute switches native <input type="time"> between 12h and 24h display
+  const timeLang = use24Hour ? "sv-SE" : "en-US";
+
   return (
     <div className="rounded-xl bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold">Opening Hours</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-semibold">Opening Hours</h2>
+
+        <button
+          type="button"
+          onClick={() => setUse24Hour((v) => !v)}
+          className="self-start rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          {use24Hour ? "24h format" : "12h format"}
+        </button>
+      </div>
 
       <p className="mt-2 text-sm text-gray-600">
         Set the hours when this location is available for bookings.
@@ -173,6 +188,7 @@ export default function AvailabilityEditor({
                     type="time"
                     value={day.startTime}
                     disabled={!day.isActive}
+                    lang={timeLang}
                     onChange={(event) =>
                       updateDay(day.dayOfWeek, {
                         startTime: event.target.value,
@@ -187,6 +203,7 @@ export default function AvailabilityEditor({
                     type="time"
                     value={day.endTime}
                     disabled={!day.isActive}
+                    lang={timeLang}
                     onChange={(event) =>
                       updateDay(day.dayOfWeek, {
                         endTime: event.target.value,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateDynamicPrice } from "@/lib/pricing";
 
 export async function POST(request: Request) {
   try {
@@ -133,16 +134,31 @@ export async function POST(request: Request) {
           expiresAt: null,
         },
       });
-    });
+    });      // Credit owner's wallet with earnings (including dynamic pricing)
+      try {
+        const start = new Date(booking.startAt);
+        const end = new Date(booking.endAt);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        const ownerId = booking.facility.location.ownerId;
 
-    // Credit owner's wallet with earnings
-    try {
-      const start = new Date(booking.startAt);
-      const end = new Date(booking.endAt);
-      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      const ownerPrice = Number(booking.facility.price);
-      const ownerEarnings = hours * ownerPrice;
-      const ownerId = booking.facility.location.ownerId;
+        // Fetch pricing rules to calculate dynamic owner earnings
+        const pricingRules = await prisma.pricingRule.findMany({
+          where: {
+            location: { ownerId },
+            isActive: true,
+          },
+        });
+
+        const startTimeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+        const dayOfWeek = start.getDay();
+        const { adjustedPrice: dynamicOwnerPrice } = calculateDynamicPrice(
+          Number(booking.facility.price),
+          startTimeStr,
+          dayOfWeek,
+          pricingRules,
+        );
+
+        const ownerEarnings = hours * dynamicOwnerPrice;
 
       if (ownerEarnings > 0 && ownerId) {
         const ownerWallet = await prisma.wallet.upsert({

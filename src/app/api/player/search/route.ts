@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { calculatePlayerPrice } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { calculateDynamicPrice } from "@/lib/pricing";
 
 const TIME_PERIODS = {
   morning: {
@@ -145,30 +146,41 @@ export async function GET(request: Request) {
           id: true,
           name: true,
         },
-      },
+      },      location: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            latitude: true,
+            longitude: true,
 
-      location: {
-        select: {
-          id: true,
-          name: true,
-          address: true,
-          city: true,
-          latitude: true,
-          longitude: true,
-
-          availabilities: {
-            where: {
-              dayOfWeek,
-              isActive: true,
+            availabilities: {
+              where: {
+                dayOfWeek,
+                isActive: true,
+              },
+              select: {
+                dayOfWeek: true,
+                startTime: true,
+                endTime: true,
+              },
             },
-            select: {
-              dayOfWeek: true,
-              startTime: true,
-              endTime: true,
+
+            pricingRules: {
+              where: {
+                isActive: true,
+              },
+              select: {
+                startTime: true,
+                endTime: true,
+                percentage: true,
+                dayOfWeek: true,
+                isActive: true,
+              },
             },
           },
         },
-      },
 
       bookings: {
         where: {
@@ -228,15 +240,31 @@ export async function GET(request: Request) {
 
         const isBlocked = blockedLocationMap.has(facility.location.id);
 
+        // Apply dynamic pricing for this slot
+        const { adjustedPrice, surgePercentage } = calculateDynamicPrice(
+          Number(facility.price),
+          slot.startTime,
+          dayOfWeek,
+          facility.location.pricingRules,
+        );
+
         return {
           startTime: slot.startTime,
           endTime: slot.endTime,
           available: !isBooked && !isPast && !isBlocked,
+          pricePerHour: calculatePlayerPrice(adjustedPrice),
+          surgePercentage,
         };
       });
 
       const blockedReason =
         blockedLocationMap.get(facility.location.id) ?? null;
+
+      // Calculate average surge across available slots for display
+      const availableSlots = slots.filter((s) => s.available);
+      const avgSurge = availableSlots.length > 0
+        ? availableSlots.reduce((sum, s) => sum + s.surgePercentage, 0) / availableSlots.length
+        : 0;
 
       return {
         id: facility.id,
@@ -246,6 +274,7 @@ export async function GET(request: Request) {
         location: facility.location,
         blockedReason,
         slots,
+        avgSurge: Math.round(avgSurge),
       };
     })
     .filter((facility) => facility.slots.some((slot) => slot.available) || facility.blockedReason !== null);

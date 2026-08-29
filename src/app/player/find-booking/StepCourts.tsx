@@ -108,8 +108,10 @@ export default function StepCourts({
               ? selectedSlotObjects
               : [];
 
-            const facilityTotal =
-              facilitySelectedSlots.length * facility.price;
+            const facilityTotal = facilitySelectedSlots.reduce(
+              (sum, slot) => sum + (slot.pricePerHour ?? facility.price),
+              0,
+            );
 
             const hasCoords =
               facility.location.latitude !== null &&
@@ -190,6 +192,11 @@ export default function StepCourts({
                       <p className="mt-1 text-xs text-gray-400 uppercase font-bold">
                         per hour
                       </p>
+                      {facility.avgSurge && facility.avgSurge > 0 && (
+                        <p className="mt-1 inline-block border-[2px] border-orange-500 bg-orange-50 px-2 py-0.5 text-xs font-bold uppercase text-orange-600">
+                          🔥 +{facility.avgSurge}% surge
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -233,13 +240,25 @@ export default function StepCourts({
                                 ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
                                 : selected
                                   ? "border-white bg-white text-black"
-                                  : "border-black bg-white text-black hover:bg-black hover:text-white"
+                                  : slot.surgePercentage && slot.surgePercentage > 0
+                                    ? "border-orange-400 bg-orange-50 text-black hover:bg-orange-100"
+                                    : "border-black bg-white text-black hover:bg-black hover:text-white"
                             }`}
                           >
                             <div>{slot.startTime}</div>
                             <div className="text-xs opacity-70">
                               {slot.endTime}
                             </div>
+                            {slot.available && slot.pricePerHour !== undefined && (
+                              <div className="mt-1 text-xs font-bold">
+                                Rs. {slot.pricePerHour.toLocaleString()}
+                              </div>
+                            )}
+                            {slot.available && slot.surgePercentage !== undefined && slot.surgePercentage > 0 && (
+                              <div className="mt-0.5 text-[10px] font-bold text-orange-600">
+                                +{slot.surgePercentage}%
+                              </div>
+                            )}
                             {!slot.available && (
                               <div className="mt-1 text-[10px]">
                                 {isBlocked ? "Blocked" : "Booked"}

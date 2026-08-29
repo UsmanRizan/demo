@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { getCurrentUser } from "@/lib/auth";
 import { calculatePlayerPrice } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { calculateDynamicPrice } from "@/lib/pricing";
 import { buildPayHerePayment } from "@/lib/payhere-helpers";
 import {
   createLocalDateTime,
@@ -287,6 +288,11 @@ export async function POST(request: Request) {
                 isActive: true,
               },
             },
+            pricingRules: {
+              where: {
+                isActive: true,
+              },
+            },
           },
         },
       },
@@ -361,7 +367,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const pricePerHour = calculatePlayerPrice(Number(facility.price));
+    // Apply dynamic pricing based on start time and day of week
+    const startTimeStr = `${String(startAt.getHours()).padStart(2, "0")}:${String(startAt.getMinutes()).padStart(2, "0")}`;
+    const { adjustedPrice } = calculateDynamicPrice(
+      Number(facility.price),
+      startTimeStr,
+      dayOfWeek,
+      facility.location.pricingRules,
+    );
+
+    const pricePerHour = calculatePlayerPrice(adjustedPrice);
 
     if (!Number.isFinite(pricePerHour) || pricePerHour <= 0) {
       return NextResponse.json(

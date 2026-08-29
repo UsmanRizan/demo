@@ -254,9 +254,10 @@ function FindBookingContent() {
 
   const totalHours = selectedSlotObjects.length;
 
-  const totalPrice = selectedFacility
-    ? totalHours * selectedFacility.price
-    : 0;
+  const totalPrice = selectedSlotObjects.reduce(
+    (sum, slot) => sum + (slot.pricePerHour ?? selectedFacility?.price ?? 0),
+    0,
+  );
 
   function proceedToPayment() {
     if (!selectedFacility || selectedSlotObjects.length === 0) {

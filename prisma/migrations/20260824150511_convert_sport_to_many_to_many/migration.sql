@@ -11,7 +11,7 @@ ALTER TABLE "Facility" DROP CONSTRAINT "Facility_sportId_fkey";
 DROP INDEX "Facility_sportId_idx";
 
 -- DropIndex
-DROP INDEX "WalletTransaction_bookingId_idx";
+DROP INDEX IF EXISTS "WalletTransaction_bookingId_idx";
 
 -- AlterTable
 ALTER TABLE "Facility" DROP COLUMN "sportId";
