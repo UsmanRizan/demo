@@ -3,7 +3,12 @@
  */
 
 export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "");
+  const digits = phone.replace(/\D/g, "");
+  // Convert Sri Lankan local format (0xxxxxxxxx) to international (94xxxxxxxxx)
+  if (digits.startsWith("0") && digits.length === 10) {
+    return "94" + digits.slice(1);
+  }
+  return digits;
 }
 
 export function isValidSriLankanPhone(phone: string): boolean {
