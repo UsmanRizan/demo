@@ -29,7 +29,14 @@ import { createLocalDateTime, isValidDate } from "@/lib/utils";
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
 
-  return hours * 60 + minutes;
+  const total = hours * 60 + minutes;
+
+  // Treat 23:59 as end-of-day (1440) so the last hourly slot (23:00–24:00) is generated
+  if (total === 23 * 60 + 59) {
+    return 24 * 60;
+  }
+
+  return total;
 }
 
 function minutesToTime(minutes: number) {

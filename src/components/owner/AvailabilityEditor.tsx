@@ -7,6 +7,7 @@ type Availability = {
   startTime: string;
   endTime: string;
   isActive: boolean;
+  isTwentyFourHour: boolean;
 };
 
 type AvailabilityEditorProps = {
@@ -28,6 +29,7 @@ const defaultAvailability: Availability[] = days.map((day) => ({
   startTime: "08:00",
   endTime: "22:00",
   isActive: false,
+  isTwentyFourHour: false,
 }));
 
 export default function AvailabilityEditor({
@@ -37,6 +39,9 @@ export default function AvailabilityEditor({
     useState<Availability[]>(defaultAvailability);
 
   const [use24Hour, setUse24Hour] = useState(true);
+
+  const [quickStartTime, setQuickStartTime] = useState("08:00");
+  const [quickEndTime, setQuickEndTime] = useState("22:00");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,6 +77,7 @@ export default function AvailabilityEditor({
             startTime: found.startTime,
             endTime: found.endTime,
             isActive: found.isActive,
+            isTwentyFourHour: found.isTwentyFourHour ?? false,
           };
         });
 
@@ -156,6 +162,57 @@ export default function AvailabilityEditor({
         Set the hours when this location is available for bookings.
       </p>
 
+      <div className="mt-6 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center sm:gap-4">
+        <span className="text-sm font-medium text-gray-700">Quick set:</span>
+        <div className="flex items-center gap-3">
+          <input
+            type="time"
+            value={quickStartTime}
+            lang={timeLang}
+            onChange={(e) => setQuickStartTime(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2.5"
+          />
+          <span className="text-gray-500">to</span>
+          <input
+            type="time"
+            value={quickEndTime}
+            lang={timeLang}
+            onChange={(e) => setQuickEndTime(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2.5"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            setAvailability((current) =>
+              current.map((day) =>
+                day.isActive
+                  ? { ...day, startTime: quickStartTime, endTime: quickEndTime, isTwentyFourHour: false }
+                  : day,
+              ),
+            )
+          }
+          className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-white"
+        >
+          Apply to all active days
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setAvailability((current) =>
+              current.map((day) =>
+                day.isActive
+                  ? { ...day, isTwentyFourHour: true, startTime: "00:00", endTime: "24:00" }
+                  : day,
+              ),
+            )
+          }
+          className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-white"
+        >
+          Set all to 24 hours
+        </button>
+      </div>
+
       <div className="mt-6 space-y-4">
         {availability.map((day) => {
           const label = days.find(
@@ -184,10 +241,27 @@ export default function AvailabilityEditor({
                 </label>
 
                 <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={day.isTwentyFourHour}
+                      disabled={!day.isActive}
+                      onChange={(event) =>
+                        updateDay(day.dayOfWeek, {
+                          isTwentyFourHour: event.target.checked,
+                          startTime: event.target.checked ? "00:00" : "08:00",
+                          endTime: event.target.checked ? "24:00" : "22:00",
+                        })
+                      }
+                      className="h-3.5 w-3.5"
+                    />
+                    <span className="text-xs text-gray-600">24h</span>
+                  </label>
+
                   <input
                     type="time"
                     value={day.startTime}
-                    disabled={!day.isActive}
+                    disabled={!day.isActive || day.isTwentyFourHour}
                     lang={timeLang}
                     onChange={(event) =>
                       updateDay(day.dayOfWeek, {
@@ -202,7 +276,7 @@ export default function AvailabilityEditor({
                   <input
                     type="time"
                     value={day.endTime}
-                    disabled={!day.isActive}
+                    disabled={!day.isActive || day.isTwentyFourHour}
                     lang={timeLang}
                     onChange={(event) =>
                       updateDay(day.dayOfWeek, {

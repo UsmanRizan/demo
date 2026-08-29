@@ -12,6 +12,7 @@ import {
 } from "./utils";
 import StepSport from "./StepSport";
 import StepTime from "./StepTime";
+import StepPeriod from "./StepPeriod";
 import StepCourts from "./StepCourts";
 
 export default function FindBookingPage() {
@@ -91,6 +92,15 @@ function FindBookingContent() {
     setError("");
   }
 
+  function confirmDate() {
+    if (!selectedDate) {
+      setError("Please select a date.");
+      return;
+    }
+    setError("");
+    setStep(3);
+  }
+
   async function searchFacilities(period: Period) {
     if (!selectedSport) {
       return;
@@ -102,7 +112,7 @@ function FindBookingContent() {
     }
 
     setSelectedPeriod(period);
-    setStep(3);
+    setStep(4);
     setFacilities([]);
     setSelectedFacilityId(null);
     setSelectedSlots([]);
@@ -224,11 +234,18 @@ function FindBookingContent() {
     if (step === 2) {
       setStep(1);
       setSelectedSport(null);
+      setError("");
       return;
     }
 
     if (step === 3) {
       setStep(2);
+      setError("");
+      return;
+    }
+
+    if (step === 4) {
+      setStep(3);
       setFacilities([]);
       setCoordinates(null);
       setSelectedPeriod(null);
@@ -299,8 +316,9 @@ function FindBookingContent() {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
           {[
             { number: 1, label: "Sport" },
-            { number: 2, label: "Time" },
-            { number: 3, label: "Courts" },
+            { number: 2, label: "Date" },
+            { number: 3, label: "Time" },
+            { number: 4, label: "Courts" },
           ].map((item, index) => (
             <div key={item.number} className="flex items-center gap-3">
               <span
@@ -313,7 +331,7 @@ function FindBookingContent() {
                 {item.number}. {item.label}
               </span>
 
-              {index < 2 && <span className="text-gray-300">→</span>}
+              {index < 3 && <span className="text-gray-300">→</span>}
             </div>
           ))}
         </div>
@@ -347,11 +365,20 @@ function FindBookingContent() {
             selectedSport={selectedSport}
             selectedDate={selectedDate}
             onDateChange={setSelectedDate}
-            onSearch={searchFacilities}
+            onSearch={confirmDate}
           />
         )}
 
-        {step === 3 && selectedSport && selectedPeriod && (
+        {step === 3 && selectedSport && (
+          <StepPeriod
+            selectedSport={selectedSport}
+            selectedDate={selectedDate}
+            onSelect={searchFacilities}
+            onBack={() => setStep(2)}
+          />
+        )}
+
+        {step === 4 && selectedSport && selectedPeriod && (
           <StepCourts
             selectedSportName={selectedSport.name}
             selectedPeriod={selectedPeriod}

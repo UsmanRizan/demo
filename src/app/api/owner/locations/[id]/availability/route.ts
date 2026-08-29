@@ -95,37 +95,41 @@ export async function PUT(request: Request, context: RouteContext) {
         );
       }
 
-      if (
-        typeof entry.startTime !== "string" ||
-        typeof entry.endTime !== "string"
-      ) {
-        return NextResponse.json(
-          {
-            error: "startTime and endTime are required",
-          },
-          { status: 400 },
-        );
-      }
+      const is24h = entry.isTwentyFourHour === true;
 
-      if (
-        !/^\d{2}:\d{2}$/.test(entry.startTime) ||
-        !/^\d{2}:\d{2}$/.test(entry.endTime)
-      ) {
-        return NextResponse.json(
-          {
-            error: "Times must use HH:MM format",
-          },
-          { status: 400 },
-        );
-      }
+      if (!is24h) {
+        if (
+          typeof entry.startTime !== "string" ||
+          typeof entry.endTime !== "string"
+        ) {
+          return NextResponse.json(
+            {
+              error: "startTime and endTime are required",
+            },
+            { status: 400 },
+          );
+        }
 
-      if (entry.startTime >= entry.endTime) {
-        return NextResponse.json(
-          {
-            error: "Start time must be before end time",
-          },
-          { status: 400 },
-        );
+        if (
+          !/^\d{2}:\d{2}$/.test(entry.startTime) ||
+          !/^\d{2}:\d{2}$/.test(entry.endTime)
+        ) {
+          return NextResponse.json(
+            {
+              error: "Times must use HH:MM format",
+            },
+            { status: 400 },
+          );
+        }
+
+        if (entry.startTime >= entry.endTime) {
+          return NextResponse.json(
+            {
+              error: "Start time must be before end time",
+            },
+            { status: 400 },
+          );
+        }
       }
     }
 
@@ -157,12 +161,14 @@ export async function PUT(request: Request, context: RouteContext) {
               startTime: string;
               endTime: string;
               isActive?: boolean;
+              isTwentyFourHour?: boolean;
             }) => ({
               locationId: id,
               dayOfWeek: entry.dayOfWeek,
-              startTime: entry.startTime,
-              endTime: entry.endTime,
+              startTime: entry.isTwentyFourHour ? "00:00" : entry.startTime,
+              endTime: entry.isTwentyFourHour ? "24:00" : entry.endTime,
               isActive: entry.isActive ?? true,
+              isTwentyFourHour: entry.isTwentyFourHour ?? false,
             }),
           ),
         });

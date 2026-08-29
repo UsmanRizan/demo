@@ -45,23 +45,31 @@ export const periods: {
   title: string;
   time: string;
   description: string;
+  start: number;
+  end: number;
 }[] = [
   {
     id: "morning",
     title: "Morning",
     time: "06:00 – 12:00",
     description: "Find courts available in the morning.",
+    start: 6 * 60,
+    end: 12 * 60,
   },
   {
     id: "evening",
     title: "Evening",
     time: "12:00 – 18:00",
     description: "Find courts available in the afternoon and evening.",
+    start: 12 * 60,
+    end: 18 * 60,
   },
   {
     id: "night",
     title: "Night",
     time: "18:00 – 24:00",
     description: "Find courts available at night.",
+    start: 18 * 60,
+    end: 24 * 60,
   },
 ];

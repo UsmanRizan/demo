@@ -332,19 +332,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const openingStart = createLocalDateTime(date, availability.startTime);
+    if (!availability.isTwentyFourHour) {
+      const openingStart = createLocalDateTime(date, availability.startTime);
 
-    const openingEnd = createLocalDateTime(date, availability.endTime);
+      const openingEnd = createLocalDateTime(date, availability.endTime);
 
-    if (startAt < openingStart || endAt > openingEnd) {
-      return NextResponse.json(
-        {
-          error: "The selected time is outside the location opening hours.",
-        },
-        {
-          status: 400,
-        },
-      );
+      if (startAt < openingStart || endAt > openingEnd) {
+        return NextResponse.json(
+          {
+            error: "The selected time is outside the location opening hours.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
     }
 
     /*

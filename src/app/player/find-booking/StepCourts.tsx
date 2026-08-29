@@ -38,16 +38,13 @@ export default function StepCourts({
   onToggleSlot,
   onProceedToPayment,
 }: StepCourtsProps) {
-  const periodLabel =
-    periods.find((p) => p.id === selectedPeriod)?.title ?? selectedPeriod;
-
   return (
     <section className="mt-8">
       <div>
         <h2 className="text-3xl font-bold uppercase">Courts near you</h2>
 
         <p className="mt-2 text-gray-500 uppercase text-sm font-bold">
-          {getSportIcon(selectedSportName)} {selectedSportName} · {periodLabel} · {selectedDate}
+          {getSportIcon(selectedSportName)} {selectedSportName} · {periods.find((p) => p.id === selectedPeriod)?.title ?? selectedPeriod} · {selectedDate}
         </p>
       </div>
 
