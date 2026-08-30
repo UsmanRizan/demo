@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { users, userAddresses } from "@/db/schema";
 import { isValidEmail, normalizePhone } from "@/lib/utils";
 
 export async function GET() {
@@ -13,35 +15,33 @@ export async function GET() {
         {
           error: "Unauthorized",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
 
     /*
      * Always load the address relation explicitly.
      */
-    const user = await prisma.user.findUnique({
-      where: {
-        id: currentUser.id,
-      },
-
-      include: {
-        address: true,
-      },
-    });
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, currentUser.id))
+      .limit(1);
 
     if (!user) {
       return NextResponse.json(
         {
           error: "User not found",
         },
-        {
-          status: 404,
-        },
+        { status: 404 },
       );
     }
+
+    const [address] = await db
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, currentUser.id))
+      .limit(1);
 
     return NextResponse.json({
       success: true,
@@ -59,17 +59,17 @@ export async function GET() {
 
         hasPassword: !!user.passwordHash,
 
-        address: user.address
+        address: address
           ? {
-              id: user.address.id,
+              id: address.id,
 
-              addressLine1: user.address.addressLine1 ?? "",
+              addressLine1: address.addressLine1 ?? "",
 
-              addressLine2: user.address.addressLine2 ?? "",
+              addressLine2: address.addressLine2 ?? "",
 
-              city: user.address.city ?? "",
+              city: address.city ?? "",
 
-              country: user.address.country ?? "Sri Lanka",
+              country: address.country ?? "Sri Lanka",
             }
           : {
               id: null,
@@ -91,9 +91,7 @@ export async function GET() {
       {
         error: "Failed to load profile",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }
@@ -107,9 +105,7 @@ export async function PUT(request: Request) {
         {
           error: "Unauthorized",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
 
@@ -151,9 +147,7 @@ export async function PUT(request: Request) {
           error:
             "First name, last name, email, address, city and country are required.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -162,9 +156,7 @@ export async function PUT(request: Request) {
         {
           error: "Please enter a valid email address.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -177,49 +169,46 @@ export async function PUT(request: Request) {
     /*
      * Update user + address in one transaction.
      */
-    const updatedUser = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.update({
-        where: {
-          id: currentUser.id,
-        },
-
-        data: {
+    const updatedUser = await db.transaction(async (tx) => {
+      const [updatedUser] = await tx
+        .update(users)
+        .set({
           firstName,
           lastName,
           email,
           phone,
-        },
-      });
+        })
+        .where(eq(users.id, currentUser.id))
+        .returning();
 
-      await tx.userAddress.upsert({
-        where: {
+      // Upsert address
+      const [existingAddress] = await tx
+        .select()
+        .from(userAddresses)
+        .where(eq(userAddresses.userId, currentUser.id))
+        .limit(1);
+
+      if (existingAddress) {
+        await tx
+          .update(userAddresses)
+          .set({
+            addressLine1,
+            addressLine2: addressLine2 || null,
+            city,
+            country,
+          })
+          .where(eq(userAddresses.userId, currentUser.id));
+      } else {
+        await tx.insert(userAddresses).values({
           userId: currentUser.id,
-        },
-
-        create: {
-          userId: currentUser.id,
-
           addressLine1,
-
           addressLine2: addressLine2 || null,
-
           city,
-
           country,
-        },
+        });
+      }
 
-        update: {
-          addressLine1,
-
-          addressLine2: addressLine2 || null,
-
-          city,
-
-          country,
-        },
-      });
-
-      return user;
+      return updatedUser;
     });
 
     /*
@@ -228,26 +217,26 @@ export async function PUT(request: Request) {
      * This guarantees the response contains exactly
      * what is stored in PostgreSQL.
      */
-    const savedUser = await prisma.user.findUnique({
-      where: {
-        id: updatedUser.id,
-      },
-
-      include: {
-        address: true,
-      },
-    });
+    const [savedUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, updatedUser.id))
+      .limit(1);
 
     if (!savedUser) {
       return NextResponse.json(
         {
           error: "Profile was saved but could not be reloaded.",
         },
-        {
-          status: 500,
-        },
+        { status: 500 },
       );
     }
+
+    const [savedAddress] = await db
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, savedUser.id))
+      .limit(1);
 
     return NextResponse.json({
       success: true,
@@ -263,17 +252,17 @@ export async function PUT(request: Request) {
 
         email: savedUser.email ?? "",
 
-        address: savedUser.address
+        address: savedAddress
           ? {
-              id: savedUser.address.id,
+              id: savedAddress.id,
 
-              addressLine1: savedUser.address.addressLine1,
+              addressLine1: savedAddress.addressLine1,
 
-              addressLine2: savedUser.address.addressLine2 ?? "",
+              addressLine2: savedAddress.addressLine2 ?? "",
 
-              city: savedUser.address.city,
+              city: savedAddress.city,
 
-              country: savedUser.address.country,
+              country: savedAddress.country,
             }
           : {
               id: null,
@@ -295,9 +284,7 @@ export async function PUT(request: Request) {
       {
         error: "Failed to save profile",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

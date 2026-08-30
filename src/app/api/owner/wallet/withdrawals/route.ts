@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq, desc } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { withdrawalRequests } from "@/db/schema";
 
 export async function GET() {
   try {
@@ -15,10 +17,11 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const requests = await prisma.withdrawalRequest.findMany({
-      where: { ownerId: currentUser.id },
-      orderBy: { createdAt: "desc" },
-    });
+    const requests = await db
+      .select()
+      .from(withdrawalRequests)
+      .where(eq(withdrawalRequests.ownerId, currentUser.id))
+      .orderBy(desc(withdrawalRequests.createdAt));
 
     return NextResponse.json({
       requests: requests.map((r) => ({

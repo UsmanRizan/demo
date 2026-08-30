@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  withdrawalRequests,
+  wallets,
+  walletTransactions,
+} from "@/db/schema";
 
 export async function PATCH(
   request: Request,
@@ -25,9 +31,11 @@ export async function PATCH(
       );
     }
 
-    const withdrawalRequest = await prisma.withdrawalRequest.findUnique({
-      where: { id },
-    });
+    const [withdrawalRequest] = await db
+      .select()
+      .from(withdrawalRequests)
+      .where(eq(withdrawalRequests.id, id))
+      .limit(1);
 
     if (!withdrawalRequest) {
       return NextResponse.json(
@@ -45,9 +53,11 @@ export async function PATCH(
 
     if (action === "approve") {
       // Process approval: debit wallet and record transaction
-      const wallet = await prisma.wallet.findUnique({
-        where: { userId: withdrawalRequest.ownerId },
-      });
+      const [wallet] = await db
+        .select()
+        .from(wallets)
+        .where(eq(wallets.userId, withdrawalRequest.ownerId))
+        .limit(1);
 
       if (!wallet) {
         return NextResponse.json(
@@ -68,35 +78,30 @@ export async function PATCH(
         );
       }
 
-      await prisma.$transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         // Deduct from wallet
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data: {
-            balance: {
-              decrement: amount,
-            },
-          },
-        });
+        const newBalance = walletBalance - amount;
+        await tx
+          .update(wallets)
+          .set({ balance: String(newBalance) })
+          .where(eq(wallets.id, wallet.id));
 
         // Record withdrawal transaction
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount,
-            type: "DEBIT",
-            note: `Withdrawal to ${withdrawalRequest.bankName} (${withdrawalRequest.accountNumber}) - ${withdrawalRequest.accountHolderName}`,
-          },
+        await tx.insert(walletTransactions).values({
+          walletId: wallet.id,
+          amount: String(amount),
+          type: "DEBIT",
+          note: `Withdrawal to ${withdrawalRequest.bankName} (${withdrawalRequest.accountNumber}) - ${withdrawalRequest.accountHolderName}`,
         });
 
         // Update withdrawal request status
-        await tx.withdrawalRequest.update({
-          where: { id },
-          data: {
+        await tx
+          .update(withdrawalRequests)
+          .set({
             status: "APPROVED",
             adminNote: adminNote || null,
-          },
-        });
+          })
+          .where(eq(withdrawalRequests.id, id));
       });
 
       return NextResponse.json({
@@ -106,13 +111,13 @@ export async function PATCH(
     }
 
     // Reject
-    await prisma.withdrawalRequest.update({
-      where: { id },
-      data: {
+    await db
+      .update(withdrawalRequests)
+      .set({
         status: "REJECTED",
         adminNote: adminNote || null,
-      },
-    });
+      })
+      .where(eq(withdrawalRequests.id, id));
 
     return NextResponse.json({
       success: true,
@@ -120,7 +125,6 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Admin withdrawal action error:", error);
-
     return NextResponse.json(
       { error: "Failed to process withdrawal request." },
       { status: 500 },

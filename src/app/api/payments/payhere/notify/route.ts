@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { bookings, facilities, locations, wallets, walletTransactions } from "@/db/schema";
 import { verifyPayHereNotification } from "@/lib/payhere";
 
 export async function POST(request: Request) {
@@ -55,21 +57,20 @@ export async function POST(request: Request) {
       return new NextResponse("Invalid checksum", { status: 400 });
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: {
-        orderId,
-      },
-      include: {
-        facility: {
-          select: {
-            price: true,
-            location: {
-              select: { ownerId: true },
-            },
-          },
-        },
-      },
-    });
+    const [booking] = await db
+      .select({
+        id: bookings.id,
+        totalPrice: bookings.totalPrice,
+        startAt: bookings.startAt,
+        endAt: bookings.endAt,
+        facilityPrice: facilities.price,
+        ownerId: locations.ownerId,
+      })
+      .from(bookings)
+      .innerJoin(facilities, eq(bookings.facilityId, facilities.id))
+      .innerJoin(locations, eq(facilities.locationId, locations.id))
+      .where(eq(bookings.orderId, orderId))
+      .limit(1);
 
     if (!booking) {
       return new NextResponse("Booking not found", { status: 404 });
@@ -85,43 +86,58 @@ export async function POST(request: Request) {
 
     switch (statusCode) {
       case "2": {
-        await prisma.booking.update({
-          where: {
-            id: booking.id,
-          },
-          data: {
+        await db
+          .update(bookings)
+          .set({
             status: "CONFIRMED",
             paymentStatus: "PAID",
             paymentId,
             paymentMethod: method || null,
             expiresAt: null,
-          },
-        });
+          })
+          .where(eq(bookings.id, booking.id));
 
         // Credit owner's wallet with earnings
         try {
           const start = new Date(booking.startAt);
           const end = new Date(booking.endAt);
           const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-          const ownerPrice = Number(booking.facility.price);
+          const ownerPrice = Number(booking.facilityPrice);
           const ownerEarnings = hours * ownerPrice;
-          const ownerId = booking.facility.location.ownerId;
+          const ownerId = booking.ownerId;
 
           if (ownerEarnings > 0 && ownerId) {
-            const wallet = await prisma.wallet.upsert({
-              where: { userId: ownerId },
-              create: { userId: ownerId, balance: ownerEarnings },
-              update: { balance: { increment: ownerEarnings } },
-            });
+            // Upsert wallet
+            const [existingWallet] = await db
+              .select()
+              .from(wallets)
+              .where(eq(wallets.userId, ownerId))
+              .limit(1);
 
-            await prisma.walletTransaction.create({
-              data: {
-                walletId: wallet.id,
-                amount: ownerEarnings,
-                type: "CREDIT",
-                bookingId: booking.id,
-                note: "Booking earning",
-              },
+            let wallet;
+            if (existingWallet) {
+              const newBalance = Number(existingWallet.balance) + ownerEarnings;
+              [wallet] = await db
+                .update(wallets)
+                .set({ balance: String(newBalance) })
+                .where(eq(wallets.id, existingWallet.id))
+                .returning();
+            } else {
+              [wallet] = await db
+                .insert(wallets)
+                .values({
+                  userId: ownerId,
+                  balance: String(ownerEarnings),
+                })
+                .returning();
+            }
+
+            await db.insert(walletTransactions).values({
+              walletId: wallet.id,
+              amount: String(ownerEarnings),
+              type: "CREDIT",
+              bookingId: booking.id,
+              note: "Booking earning",
             });
           }
         } catch (walletError) {
@@ -132,62 +148,54 @@ export async function POST(request: Request) {
       }
 
       case "0":
-        await prisma.booking.update({
-          where: {
-            id: booking.id,
-          },
-          data: {
+        await db
+          .update(bookings)
+          .set({
             status: "PENDING",
             paymentStatus: "PENDING",
             paymentId: paymentId || null,
             paymentMethod: method || null,
-          },
-        });
+          })
+          .where(eq(bookings.id, booking.id));
         break;
 
       case "-1":
-        await prisma.booking.update({
-          where: {
-            id: booking.id,
-          },
-          data: {
+        await db
+          .update(bookings)
+          .set({
             status: "CANCELLED",
             paymentStatus: "CANCELLED",
             paymentId: paymentId || null,
             paymentMethod: method || null,
             expiresAt: null,
-          },
-        });
+          })
+          .where(eq(bookings.id, booking.id));
         break;
 
       case "-2":
-        await prisma.booking.update({
-          where: {
-            id: booking.id,
-          },
-          data: {
+        await db
+          .update(bookings)
+          .set({
             status: "CANCELLED",
             paymentStatus: "FAILED",
             paymentId: paymentId || null,
             paymentMethod: method || null,
             expiresAt: null,
-          },
-        });
+          })
+          .where(eq(bookings.id, booking.id));
         break;
 
       case "-3":
-        await prisma.booking.update({
-          where: {
-            id: booking.id,
-          },
-          data: {
+        await db
+          .update(bookings)
+          .set({
             status: "CANCELLED",
             paymentStatus: "CHARGEBACK",
             paymentId: paymentId || null,
             paymentMethod: method || null,
             expiresAt: null,
-          },
-        });
+          })
+          .where(eq(bookings.id, booking.id));
         break;
 
       default:

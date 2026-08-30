@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
 type RouteContext = {
@@ -17,9 +19,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       {
         error: "Unauthorized",
       },
-      {
-        status: 403,
-      },
+      { status: 403 },
     );
   }
 
@@ -33,9 +33,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           error: "Invalid role",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -44,34 +42,33 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           error: "You cannot change your own role",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const user = await prisma.user.update({
-      where: {
-        id,
-      },
+    const [user] = await db
+      .update(users)
+      .set({ role: body.role })
+      .where(eq(users.id, id))
+      .returning();
 
-      data: {
-        role: body.role,
-      },
-
-      select: {
-        id: true,
-        phone: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        role: true,
-      },
-    });
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      user,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error) {
     console.error("Role update error:", error);
@@ -80,9 +77,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       {
         error: "Failed to update user role",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

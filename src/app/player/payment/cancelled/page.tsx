@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import { eq, and } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
+import { db } from "@/lib/prisma";
+import { bookings } from "@/db/schema";
 
 type PageProps = {
   searchParams: Promise<{
@@ -20,19 +22,21 @@ export default async function PaymentCancelledPage({ searchParams }: PageProps) 
   const params = await searchParams;
 
   if (params.bookingId) {
-    await prisma.booking.updateMany({
-      where: {
-        id: params.bookingId,
-        playerId: user.id,
-        status: "PENDING",
-        paymentStatus: "PENDING",
-      },
-      data: {
+    await db
+      .update(bookings)
+      .set({
         status: "CANCELLED",
         paymentStatus: "CANCELLED",
         expiresAt: null,
-      },
-    });
+      })
+      .where(
+        and(
+          eq(bookings.id, params.bookingId),
+          eq(bookings.playerId, user.id),
+          eq(bookings.status, "PENDING"),
+          eq(bookings.paymentStatus, "PENDING"),
+        ),
+      );
   }
 
   return (
@@ -43,12 +47,24 @@ export default async function PaymentCancelledPage({ searchParams }: PageProps) 
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg shadow-slate-200/50 sm:p-10">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
-              <svg className="h-8 w-8 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-8 w-8 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </div>
 
-            <h1 className="mt-5 text-2xl font-bold text-slate-900">Payment cancelled</h1>
+            <h1 className="mt-5 text-2xl font-bold text-slate-900">
+              Payment cancelled
+            </h1>
 
             <p className="mt-2 text-slate-500">
               Your payment was cancelled. No charges were made.

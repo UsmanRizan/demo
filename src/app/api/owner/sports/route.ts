@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { sports } from "@/db/schema";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -10,16 +12,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const sports = await prisma.sport.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: {
-      name: "asc",
-    },
-  });
+  const result = await db
+    .select()
+    .from(sports)
+    .where(eq(sports.isActive, true))
+    .orderBy(sports.name);
 
   return NextResponse.json({
-    sports,
+    sports: result,
   });
 }

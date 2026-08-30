@@ -1,73 +1,106 @@
+import { eq, and, or, lt, desc } from "drizzle-orm";
+
 import { requireOwner } from "@/lib/owner";
-import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import EarningsClient from "./EarningsClient";
+import { db } from "@/lib/prisma";
+import {
+  bookings,
+  facilities,
+  locations,
+  wallets,
+  walletTransactions,
+  withdrawalRequests,
+} from "@/db/schema";
 
 export default async function OwnerEarningsPage() {
   const user = await requireOwner();
 
-  const [rawBookings, wallet, rawWithdrawals] = await Promise.all([
-    prisma.booking.findMany({
-      where: {
-        facility: {
-          location: {
-            ownerId: user.id,
-          },
-        },
-        paymentStatus: "PAID",
-        OR: [
-          { status: "COMPLETED" },
-          { status: "CONFIRMED", endAt: { lt: new Date() } },
-        ],
-      },
-      include: {
-        facility: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            location: {
-              select: { id: true, name: true },
-            },
-          },
-        },
-      },
-      orderBy: { startAt: "desc" },
-    }),
-    prisma.wallet.findUnique({
-      where: { userId: user.id },
-      include: {
-        transactions: {
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        },
-      },
-    }),
-    prisma.withdrawalRequest.findMany({
-      where: { ownerId: user.id },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+  const now = new Date();
 
-  const bookings = rawBookings.map((b) => ({
+  // Get paid bookings (COMPLETED or past CONFIRMED)
+  const rawBookings = await db
+    .select({
+      id: bookings.id,
+      startAt: bookings.startAt,
+      endAt: bookings.endAt,
+      totalPrice: bookings.totalPrice,
+      status: bookings.status,
+      facilityId: facilities.id,
+      facilityName: facilities.name,
+      facilityPrice: facilities.price,
+      locationId: locations.id,
+      locationName: locations.name,
+    })
+    .from(bookings)
+    .innerJoin(facilities, eq(bookings.facilityId, facilities.id))
+    .innerJoin(locations, eq(facilities.locationId, locations.id))
+    .where(
+      and(
+        eq(locations.ownerId, user.id),
+        eq(bookings.paymentStatus, "PAID"),
+        or(
+          eq(bookings.status, "COMPLETED"),
+          and(eq(bookings.status, "CONFIRMED"), lt(bookings.endAt, now)),
+        )!,
+      ),
+    )
+    .orderBy(bookings.startAt);
+
+  // Get wallet with recent transactions
+  const [wallet] = await db
+    .select()
+    .from(wallets)
+    .where(eq(wallets.userId, user.id))
+    .limit(1);
+
+  let walletTransactionsList: Array<{
+    id: string;
+    amount: string;
+    type: "CREDIT" | "DEBIT";
+    note: string | null;
+    bookingId: string | null;
+    createdAt: Date;
+  }> = [];
+
+  if (wallet) {
+    walletTransactionsList = await db
+      .select()
+      .from(walletTransactions)
+      .where(eq(walletTransactions.walletId, wallet.id))
+      .orderBy(desc(walletTransactions.createdAt))
+      .limit(20);
+  }
+
+  // Get withdrawal requests
+  const rawWithdrawals = await db
+    .select()
+    .from(withdrawalRequests)
+    .where(eq(withdrawalRequests.ownerId, user.id))
+    .orderBy(desc(withdrawalRequests.createdAt));
+
+  const enrichedBookings = rawBookings.map((b) => ({
     id: b.id,
     startAt: b.startAt.toISOString(),
     endAt: b.endAt.toISOString(),
     totalPrice: b.totalPrice.toString(),
     status: b.status,
     facility: {
-      id: b.facility.id,
-      name: b.facility.name,
-      price: b.facility.price.toString(),
-      location: b.facility.location,
+      id: b.facilityId,
+      name: b.facilityName,
+      price: b.facilityPrice.toString(),
+      location: {
+        id: b.locationId,
+        name: b.locationName,
+      },
     },
   }));
 
   const walletData = wallet
     ? {
         balance: wallet.balance.toString(),
-        transactions: wallet.transactions.map((t) => ({
+        transactions: walletTransactionsList.map((t) => ({
           id: t.id,
           amount: t.amount.toString(),
           type: t.type,
@@ -96,13 +129,19 @@ export default async function OwnerEarningsPage() {
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Earnings</h1>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+            My Earnings
+          </h1>
           <p className="mt-1 text-slate-500">
             Track your revenue from bookings across all your facilities.
           </p>
         </div>
 
-        <EarningsClient bookings={bookings} wallet={walletData} withdrawals={withdrawals} />
+        <EarningsClient
+          bookings={enrichedBookings}
+          wallet={walletData}
+          withdrawals={withdrawals}
+        />
       </div>
 
       <Footer />

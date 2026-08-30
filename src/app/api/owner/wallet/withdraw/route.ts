@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { wallets, withdrawalRequests } from "@/db/schema";
 
 export async function POST(request: Request) {
   try {
@@ -64,9 +66,11 @@ export async function POST(request: Request) {
     }
 
     // Get wallet
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId: currentUser.id },
-    });
+    const [wallet] = await db
+      .select()
+      .from(wallets)
+      .where(eq(wallets.userId, currentUser.id))
+      .limit(1);
 
     if (!wallet) {
       return NextResponse.json(
@@ -88,12 +92,16 @@ export async function POST(request: Request) {
     }
 
     // Check for any pending withdrawal requests
-    const pendingRequest = await prisma.withdrawalRequest.findFirst({
-      where: {
-        ownerId: currentUser.id,
-        status: "PENDING",
-      },
-    });
+    const [pendingRequest] = await db
+      .select()
+      .from(withdrawalRequests)
+      .where(
+        and(
+          eq(withdrawalRequests.ownerId, currentUser.id),
+          eq(withdrawalRequests.status, "PENDING"),
+        ),
+      )
+      .limit(1);
 
     if (pendingRequest) {
       return NextResponse.json(
@@ -109,15 +117,16 @@ export async function POST(request: Request) {
     const trimmedAccountHolderName = accountHolderName.trim();
 
     // Create withdrawal request (pending admin approval)
-    const withdrawalRequest = await prisma.withdrawalRequest.create({
-      data: {
+    const [withdrawalRequest] = await db
+      .insert(withdrawalRequests)
+      .values({
         ownerId: currentUser.id,
-        amount,
+        amount: String(amount),
         bankName: trimmedBankName,
         accountNumber: trimmedAccountNumber,
         accountHolderName: trimmedAccountHolderName,
-      },
-    });
+      })
+      .returning();
 
     return NextResponse.json({
       success: true,

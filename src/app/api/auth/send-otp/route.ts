@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { eq, and } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { otpCodes } from "@/db/schema";
 import { generateOtp, hashOtp } from "@/lib/otp";
 import { sendSms } from "@/lib/textlk";
 import { normalizePhone } from "@/lib/utils";
@@ -29,22 +31,17 @@ export async function POST(request: Request) {
     }
 
     // Remove older unverified OTPs for this phone.
-    await prisma.otpCode.deleteMany({
-      where: {
-        phone,
-        verified: false,
-      },
-    });
+    await db
+      .delete(otpCodes)
+      .where(and(eq(otpCodes.phone, phone), eq(otpCodes.verified, false)));
 
     const otp = generateOtp();
     const codeHash = hashOtp(otp);
 
-    await prisma.otpCode.create({
-      data: {
-        phone,
-        codeHash,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-      },
+    await db.insert(otpCodes).values({
+      phone,
+      codeHash,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
     const sms = await sendSms(

@@ -1,7 +1,14 @@
 import { notFound, redirect } from "next/navigation";
+import { eq, and, asc } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  locations,
+  facilities,
+  sports,
+  facilityToSport,
+} from "@/db/schema";
 import { getSportIcon } from "@/lib/sport-icons";
 import AvailabilityEditor from "@/components/owner/AvailabilityEditor";
 import BlockedDatesEditor from "@/components/owner/BlockedDatesEditor";
@@ -27,26 +34,38 @@ export default async function LocationPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const location = await prisma.location.findFirst({
-    where: {
-      id,
-      ownerId: user.id,
-    },
-    include: {
-      facilities: {
-        include: {
-          sports: true,
-        },
-        orderBy: {
-          name: "asc",
-        },
-      },
-    },
-  });
+  const [location] = await db
+    .select()
+    .from(locations)
+    .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+    .limit(1);
 
   if (!location) {
     notFound();
   }
+
+  // Get facilities for this location
+  const locationFacilities = await db
+    .select()
+    .from(facilities)
+    .where(eq(facilities.locationId, id))
+    .orderBy(asc(facilities.name));
+
+  // Get sports for each facility
+  const facilitiesWithSports = await Promise.all(
+    locationFacilities.map(async (facility) => {
+      const facilitySports = await db
+        .select({ id: sports.id, name: sports.name, slug: sports.slug, isActive: sports.isActive })
+        .from(facilityToSport)
+        .innerJoin(sports, eq(facilityToSport.b, sports.id))
+        .where(eq(facilityToSport.a, facility.id));
+
+      return {
+        ...facility,
+        sports: facilitySports,
+      };
+    }),
+  );
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
@@ -58,7 +77,9 @@ export default async function LocationPage({ params }: PageProps) {
         <div className="mt-6 rounded-xl bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold sm:text-3xl">{location.name}</h1>
+              <h1 className="text-2xl font-bold sm:text-3xl">
+                {location.name}
+              </h1>
 
               <p className="mt-2 text-gray-600">
                 {location.address}, {location.city}
@@ -71,7 +92,15 @@ export default async function LocationPage({ params }: PageProps) {
                   rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50"
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    className="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
@@ -124,7 +153,7 @@ export default async function LocationPage({ params }: PageProps) {
           <h2 className="text-2xl font-bold">Facilities</h2>
 
           <div className="mt-5 grid gap-5 md:grid-cols-2">
-            {location.facilities.map((facility) => (
+            {facilitiesWithSports.map((facility) => (
               <div
                 key={facility.id}
                 className="rounded-xl bg-white p-6 shadow-sm"
@@ -134,7 +163,9 @@ export default async function LocationPage({ params }: PageProps) {
                     <h3 className="text-xl font-semibold">{facility.name}</h3>
 
                     <p className="mt-1 text-sm text-gray-500">
-                      {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
+                      {facility.sports
+                        .map((s) => `${getSportIcon(s.name)} ${s.name}`)
+                        .join(", ")}
                     </p>
                   </div>
 
@@ -164,7 +195,7 @@ export default async function LocationPage({ params }: PageProps) {
               </div>
             ))}
 
-            {location.facilities.length === 0 && (
+            {facilitiesWithSports.length === 0 && (
               <div className="rounded-xl bg-white p-6 text-gray-600 md:col-span-2">
                 No facilities have been added yet.
               </div>

@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  bookings,
+  facilities,
+  locations,
+  users,
+  wallets,
+  walletTransactions,
+  facilityToSport,
+  sports,
+} from "@/db/schema";
 
 export async function PATCH(
   request: Request,
@@ -30,31 +41,29 @@ export async function PATCH(
     );
   }
 
-  const booking = await prisma.booking.findFirst({
-    where: {
-      id,
-      facility: {
-        location: {
-          ownerId: currentUser.id,
-        },
-      },
-    },
-    include: {
-      facility: {
-        include: {
-          sports: true,
-          location: true,
-        },
-      },
-      player: {
-        select: { firstName: true, lastName: true, phone: true, email: true },
-      },
-    },
-  });
+  // Find the booking with facility and location ownership check
+  const [bookingWithRelations] = await db
+    .select({
+      booking: bookings,
+      facilityId: facilities.id,
+      facilityName: facilities.name,
+      facilityPrice: facilities.price,
+      locationId: locations.id,
+      locationName: locations.name,
+      locationAddress: locations.address,
+      locationCity: locations.city,
+    })
+    .from(bookings)
+    .innerJoin(facilities, eq(bookings.facilityId, facilities.id))
+    .innerJoin(locations, eq(facilities.locationId, locations.id))
+    .where(and(eq(bookings.id, id), eq(locations.ownerId, currentUser.id)))
+    .limit(1);
 
-  if (!booking) {
+  if (!bookingWithRelations) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
+
+  const { booking } = bookingWithRelations;
 
   let updateData: Record<string, unknown> = {};
 
@@ -66,49 +75,69 @@ export async function PATCH(
     updateData = { status: "CANCELLED", paymentStatus: "CANCELLED", expiresAt: null };
   }
 
-  const updated = await prisma.booking.update({
-    where: { id: booking.id },
-    data: updateData,
-    include: {
-      facility: {
-        include: {
-          sports: { select: { id: true, name: true } },
-          location: { select: { id: true, name: true, address: true, city: true } },
-        },
-      },
-      player: {
-        select: { firstName: true, lastName: true, phone: true, email: true, id: true },
-      },
-    },
-  });
+  const [updated] = await db
+    .update(bookings)
+    .set(updateData)
+    .where(eq(bookings.id, booking.id))
+    .returning();
+
+  // Get facility sports for response
+  const facilitySports = await db
+    .select({ id: sports.id, name: sports.name })
+    .from(facilityToSport)
+    .innerJoin(sports, eq(facilityToSport.b, sports.id))
+    .where(eq(facilityToSport.a, booking.facilityId));
+
+  // Get player info for response
+  const [player] = await db
+    .select({
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phone: users.phone,
+      email: users.email,
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.id, booking.playerId))
+    .limit(1);
 
   // Credit player's wallet if a paid booking was cancelled
   let walletCredited = false;
   if (action === "cancel" && booking.paymentStatus === "PAID") {
     const refundAmount = Number(booking.totalPrice);
     try {
-      await prisma.$transaction(async (tx) => {
-        const wallet = await tx.wallet.upsert({
-          where: { userId: booking.playerId },
-          create: {
-            userId: booking.playerId,
-            balance: refundAmount,
-          },
-          update: {
-            balance: {
-              increment: refundAmount,
-            },
-          },
-        });
+      await db.transaction(async (tx) => {
+        // Upsert wallet
+        const [existingWallet] = await tx
+          .select()
+          .from(wallets)
+          .where(eq(wallets.userId, booking.playerId))
+          .limit(1);
 
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount: refundAmount,
-            type: "CREDIT",
-            bookingId: booking.id,
-            note: "Booking cancellation refund by owner",
-          },
+        let wallet;
+        if (existingWallet) {
+          const newBalance = Number(existingWallet.balance) + refundAmount;
+          [wallet] = await tx
+            .update(wallets)
+            .set({ balance: String(newBalance) })
+            .where(eq(wallets.id, existingWallet.id))
+            .returning();
+        } else {
+          [wallet] = await tx
+            .insert(wallets)
+            .values({
+              userId: booking.playerId,
+              balance: String(refundAmount),
+            })
+            .returning();
+        }
+
+        await tx.insert(walletTransactions).values({
+          walletId: wallet.id,
+          amount: String(refundAmount),
+          type: "CREDIT",
+          bookingId: booking.id,
+          note: "Booking cancellation refund by owner",
         });
       });
 
@@ -128,13 +157,18 @@ export async function PATCH(
     paymentMethod: updated.paymentMethod,
     orderId: updated.orderId,
     createdAt: updated.createdAt.toISOString(),
-    player: updated.player,
+    player,
     facility: {
-      id: updated.facility.id,
-      name: updated.facility.name,
-      price: updated.facility.price.toString(),
-      sports: updated.facility.sports,
-      location: updated.facility.location,
+      id: bookingWithRelations.facilityId,
+      name: bookingWithRelations.facilityName,
+      price: bookingWithRelations.facilityPrice.toString(),
+      sports: facilitySports,
+      location: {
+        id: bookingWithRelations.locationId,
+        name: bookingWithRelations.locationName,
+        address: bookingWithRelations.locationAddress,
+        city: bookingWithRelations.locationCity,
+      },
     },
     ...(action === "cancel" && { walletCredited }),
   });

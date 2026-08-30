@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { users } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
 
 export async function POST(request: Request) {
@@ -35,10 +37,10 @@ export async function POST(request: Request) {
 
     const passwordHash = await hashPassword(password);
 
-    await prisma.user.update({
-      where: { id: currentUser.id },
-      data: { passwordHash },
-    });
+    await db
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, currentUser.id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

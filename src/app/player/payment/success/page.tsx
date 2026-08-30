@@ -1,7 +1,15 @@
 import { redirect } from "next/navigation";
+import { eq, and } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  bookings,
+  facilities,
+  locations,
+  sports,
+  facilityToSport,
+} from "@/db/schema";
 import { getSportIcon } from "@/lib/sport-icons";
 import Header from "@/components/Header";
 
@@ -24,25 +32,35 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
     redirect("/player");
   }
 
-  const booking = await prisma.booking.findFirst({
-    where: {
-      id: params.bookingId,
-      playerId: user.id,
-    },
-    include: {
-      facility: {
-        include: {
-          location: true,
-          sports: true,
-        },
-      },
-    },
-  });
+  // Find booking
+  const [bookingData] = await db
+    .select({
+      booking: bookings,
+      facilityId: facilities.id,
+      facilityName: facilities.name,
+      locationId: locations.id,
+      locationName: locations.name,
+    })
+    .from(bookings)
+    .innerJoin(facilities, eq(bookings.facilityId, facilities.id))
+    .innerJoin(locations, eq(facilities.locationId, locations.id))
+    .where(
+      and(eq(bookings.id, params.bookingId), eq(bookings.playerId, user.id)),
+    )
+    .limit(1);
 
-  if (!booking) {
+  if (!bookingData) {
     redirect("/player");
   }
 
+  // Get facility sports
+  const facilitySports = await db
+    .select({ name: sports.name })
+    .from(facilityToSport)
+    .innerJoin(sports, eq(facilityToSport.b, sports.id))
+    .where(eq(facilityToSport.a, bookingData.facilityId));
+
+  const booking = bookingData.booking;
   const paid = booking.paymentStatus === "PAID";
 
   const startStr = booking.startAt.toLocaleString("en-LK", {
@@ -66,11 +84,23 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
             {paid ? (
               <>
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-                  <svg className="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  <svg
+                    className="h-8 w-8 text-emerald-600"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.5 12.75l6 6 9-13.5"
+                    />
                   </svg>
                 </div>
-                <h1 className="mt-5 text-2xl font-bold text-slate-900">Payment successful</h1>
+                <h1 className="mt-5 text-2xl font-bold text-slate-900">
+                  Payment successful
+                </h1>
                 <p className="mt-2 text-slate-500">
                   Your booking has been confirmed. You&apos;re all set!
                 </p>
@@ -78,27 +108,59 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
             ) : (
               <>
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
-                  <svg className="h-8 w-8 text-amber-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="h-8 w-8 text-amber-600"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
-                <h1 className="mt-5 text-2xl font-bold text-slate-900">Payment processing</h1>
+                <h1 className="mt-5 text-2xl font-bold text-slate-900">
+                  Payment processing
+                </h1>
                 <p className="mt-2 text-slate-500">
-                  Your payment is being confirmed. This usually takes a few seconds.
+                  Your payment is being confirmed. This usually takes a few
+                  seconds.
                 </p>
               </>
             )}
 
             {/* Booking details */}
             <div className="mt-6 rounded-xl bg-slate-50 p-5 text-left">
-              <p className="font-semibold text-slate-900">{booking.facility.sports.length > 0 ? getSportIcon(booking.facility.sports[0].name) : "🏅"} {booking.facility.name}</p>
-              <p className="mt-1 text-sm text-slate-500">{booking.facility.location.name}</p>
+              <p className="font-semibold text-slate-900">
+                {facilitySports.length > 0
+                  ? getSportIcon(facilitySports[0].name)
+                  : "_schedule"}{" "}
+                {bookingData.facilityName}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {bookingData.locationName}
+              </p>
 
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                <svg
+                  className="h-4 w-4 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                  />
                 </svg>
-                <span>{startStr} – {endStr}</span>
+                <span>
+                  {startStr} – {endStr}
+                </span>
               </div>
 
               <div className="mt-3 border-t border-slate-200 pt-3">

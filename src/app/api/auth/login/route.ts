@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { users } from "@/db/schema";
 import { comparePassword } from "@/lib/password";
 import { createSession } from "@/lib/session";
 import { normalizePhone } from "@/lib/utils";
@@ -26,9 +28,11 @@ export async function POST(request: Request) {
     const phone = normalizePhone(body.phone);
     const password = body.password;
 
-    const user = await prisma.user.findUnique({
-      where: { phone },
-    });
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phone, phone))
+      .limit(1);
 
     if (!user || !user.passwordHash) {
       return NextResponse.json(

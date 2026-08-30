@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
+import { eq, and, lt, gt, inArray } from "drizzle-orm";
 
 import { calculatePlayerPrice } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  facilities,
+  locations,
+  availabilities,
+  pricingRules,
+  bookings,
+  blockedDates,
+  facilityToSport,
+  sports,
+} from "@/db/schema";
 import { calculateDynamicPrice } from "@/lib/pricing";
 
 const TIME_PERIODS = {
@@ -107,109 +118,102 @@ export async function GET(request: Request) {
   const dayOfWeek = getDayOfWeek(date);
 
   // Check if this date is blocked for any location
-  const blockedDatesForDay = await prisma.blockedDate.findMany({
-    where: {
-      date: createLocalDateTime(date, "00:00"),
-    },
-    select: {
-      locationId: true,
-      reason: true,
-    },
-  });
+  const dayDate = createLocalDateTime(date, "00:00");
+  const blockedDatesForDay = await db
+    .select({
+      locationId: blockedDates.locationId,
+      reason: blockedDates.reason,
+    })
+    .from(blockedDates)
+    .where(eq(blockedDates.date, dayDate));
 
   const blockedLocationMap = new Map(
     blockedDatesForDay.map((r) => [r.locationId, r.reason]),
   );
 
   const dayStart = createLocalDateTime(date, "00:00");
-
   const dayEnd = createLocalDateTime(date, "23:59");
 
-  const facilities = await prisma.facility.findMany({
-    where: {
-      sports: {
-        some: {
-          id: sportId,
-        },
-      },
-      isActive: true,        location: {
-          isActive: true,
-          availabilities: {
-            some: {
-              dayOfWeek,
-              isActive: true,
-            },
-          },
-        },
-    },
+  // Find facilities with active sports and locations
+  const facilitiesWithRelations = await db
+    .select({
+      facilityId: facilities.id,
+      facilityName: facilities.name,
+      facilityPrice: facilities.price,
+      facilityIsActive: facilities.isActive,
+      locationId: locations.id,
+      locationName: locations.name,
+      locationAddress: locations.address,
+      locationCity: locations.city,
+      locationLatitude: locations.latitude,
+      locationLongitude: locations.longitude,
+      locationIsActive: locations.isActive,
+    })
+    .from(facilities)
+    .innerJoin(locations, eq(facilities.locationId, locations.id))
+    .innerJoin(facilityToSport, eq(facilities.id, facilityToSport.a))
+    .innerJoin(sports, eq(facilityToSport.b, sports.id))
+    .where(
+      and(
+        eq(sports.id, sportId),
+        eq(facilities.isActive, true),
+        eq(locations.isActive, true),
+      ),
+    );
 
-    select: {
-      id: true,
-      name: true,
-      price: true,
+  // Deduplicate facilities
+  const facilityMap = new Map<
+    string,
+    (typeof facilitiesWithRelations)[number]
+  >();
+  for (const f of facilitiesWithRelations) {
+    if (!facilityMap.has(f.facilityId)) {
+      facilityMap.set(f.facilityId, f);
+    }
+  }
+  const uniqueFacilities = Array.from(facilityMap.values());
 
-      sports: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },      location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            city: true,
-            latitude: true,
-            longitude: true,
+  // For each facility, load availabilities, pricing rules, and bookings
+  const results = await Promise.all(
+    uniqueFacilities.map(async (f) => {
+      const locationAvailabilities = await db
+        .select()
+        .from(availabilities)
+        .where(
+          and(
+            eq(availabilities.locationId, f.locationId),
+            eq(availabilities.isActive, true),
+          ),
+        );
 
-            availabilities: {
-              where: {
-                dayOfWeek,
-                isActive: true,
-              },
-              select: {
-                dayOfWeek: true,
-                startTime: true,
-                endTime: true,
-              },
-            },
+      const locationPricingRules = await db
+        .select()
+        .from(pricingRules)
+        .where(
+          and(
+            eq(pricingRules.locationId, f.locationId),
+            eq(pricingRules.isActive, true),
+          ),
+        );
 
-            pricingRules: {
-              where: {
-                isActive: true,
-              },
-              select: {
-                startTime: true,
-                endTime: true,
-                percentage: true,
-                dayOfWeek: true,
-                isActive: true,
-              },
-            },
-          },
-        },
+      const facilityBookings = await db
+        .select({
+          startAt: bookings.startAt,
+          endAt: bookings.endAt,
+        })
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.facilityId, f.facilityId),
+            eq(bookings.status, "CONFIRMED"),
+            lt(bookings.startAt, dayEnd),
+            gt(bookings.endAt, dayStart),
+          ),
+        );
 
-      bookings: {
-        where: {
-          status: "CONFIRMED",
-          startAt: {
-            lt: dayEnd,
-          },
-          endAt: {
-            gt: dayStart,
-          },
-        },
-        select: {
-          startAt: true,
-          endAt: true,
-        },
-      },
-    },
-  });
-
-  const results = facilities
-    .map((facility) => {
-      const openingHours = facility.location.availabilities;
+      const openingHours = locationAvailabilities.filter(
+        (a) => a.dayOfWeek === dayOfWeek,
+      );
 
       const allSlots = openingHours.flatMap((opening) =>
         generateHourlySlots(
@@ -234,10 +238,9 @@ export async function GET(request: Request) {
 
       const slots = uniqueSlots.map((slot) => {
         const slotStart = createLocalDateTime(date, slot.startTime);
-
         const slotEnd = createLocalDateTime(date, slot.endTime);
 
-        const isBooked = facility.bookings.some(
+        const isBooked = facilityBookings.some(
           (booking) => booking.startAt < slotEnd && booking.endAt > slotStart,
         );
 
@@ -245,14 +248,20 @@ export async function GET(request: Request) {
         const slotStartMinutes = timeToMinutes(slot.startTime);
         const isPast = isToday && slotStartMinutes <= currentTimeMinutes;
 
-        const isBlocked = blockedLocationMap.has(facility.location.id);
+        const isBlocked = blockedLocationMap.has(f.locationId);
 
         // Apply dynamic pricing for this slot
         const { adjustedPrice, surgePercentage } = calculateDynamicPrice(
-          Number(facility.price),
+          Number(f.facilityPrice),
           slot.startTime,
           dayOfWeek,
-          facility.location.pricingRules,
+          locationPricingRules.map((r) => ({
+            startTime: r.startTime,
+            endTime: r.endTime,
+            percentage: Number(r.percentage),
+            dayOfWeek: r.dayOfWeek,
+            isActive: r.isActive,
+          })),
         );
 
         return {
@@ -265,31 +274,69 @@ export async function GET(request: Request) {
       });
 
       const blockedReason =
-        blockedLocationMap.get(facility.location.id) ?? null;
+        blockedLocationMap.get(f.locationId) ?? null;
 
       // Calculate average surge across available slots for display
       const availableSlots = slots.filter((s) => s.available);
-      const avgSurge = availableSlots.length > 0
-        ? availableSlots.reduce((sum, s) => sum + s.surgePercentage, 0) / availableSlots.length
-        : 0;
+      const avgSurge =
+        availableSlots.length > 0
+          ? availableSlots.reduce((sum, s) => sum + s.surgePercentage, 0) /
+            availableSlots.length
+          : 0;
 
       return {
-        id: facility.id,
-        name: facility.name,
-        price: calculatePlayerPrice(Number(facility.price)),
-        sports: facility.sports,
-        location: facility.location,
+        id: f.facilityId,
+        name: f.facilityName,
+        price: calculatePlayerPrice(Number(f.facilityPrice)),
+        sports: [] as { id: string; name: string }[], // Will be populated below
+        location: {
+          id: f.locationId,
+          name: f.locationName,
+          address: f.locationAddress,
+          city: f.locationCity,
+          latitude: f.locationLatitude,
+          longitude: f.locationLongitude,
+          availabilities: openingHours.map((a) => ({
+            dayOfWeek: a.dayOfWeek,
+            startTime: a.startTime,
+            endTime: a.endTime,
+          })),
+          pricingRules: locationPricingRules.map((r) => ({
+            startTime: r.startTime,
+            endTime: r.endTime,
+            percentage: Number(r.percentage),
+            dayOfWeek: r.dayOfWeek,
+            isActive: r.isActive,
+          })),
+        },
         blockedReason,
         slots,
         avgSurge: Math.round(avgSurge),
       };
-    })
-    .filter((facility) => facility.slots.some((slot) => slot.available) || facility.blockedReason !== null);
+    }),
+  );
+
+  // Load sports for each facility
+  for (const facility of results) {
+    const facilitySportsList = await db
+      .select({ id: sports.id, name: sports.name })
+      .from(facilityToSport)
+      .innerJoin(sports, eq(facilityToSport.b, sports.id))
+      .where(eq(facilityToSport.a, facility.id));
+
+    facility.sports = facilitySportsList;
+  }
+
+  const filteredResults = results.filter(
+    (facility) =>
+      facility.slots.some((slot) => slot.available) ||
+      facility.blockedReason !== null,
+  );
 
   return NextResponse.json({
     date,
     period,
     periodLabel: selectedPeriod.label,
-    facilities: results,
+    facilities: filteredResults,
   });
 }

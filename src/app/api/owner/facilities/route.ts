@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
+import { eq, and, inArray } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  facilities,
+  locations,
+  sports,
+  facilityToSport,
+} from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
@@ -44,12 +51,11 @@ export async function POST(request: Request) {
     }
 
     // Make sure the location belongs to this owner.
-    const location = await prisma.location.findFirst({
-      where: {
-        id: locationId,
-        ownerId: user.id,
-      },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, locationId), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json(
@@ -59,40 +65,55 @@ export async function POST(request: Request) {
     }
 
     // Only active sports can be selected.
-    const sports = await prisma.sport.findMany({
-      where: {
-        id: { in: sportIds },
-        isActive: true,
-      },
-    });
+    const activeSports = await db
+      .select()
+      .from(sports)
+      .where(and(inArray(sports.id, sportIds), eq(sports.isActive, true)));
 
-    if (sports.length !== sportIds.length) {
+    if (activeSports.length !== sportIds.length) {
       return NextResponse.json(
         { error: "One or more sports not found or inactive" },
         { status: 404 },
       );
     }
 
-    const facility = await prisma.facility.create({
-      data: {
-        locationId,
-        name,
-        description,
-        price,
-        sports: {
-          connect: sportIds.map((id) => ({ id })),
-        },
-      },
-      include: {
-        sports: true,
-        location: true,
-      },
+    // Create facility and link sports in a transaction
+    const [facility] = await db.transaction(async (tx) => {
+      const [newFacility] = await tx
+        .insert(facilities)
+        .values({
+          locationId,
+          name,
+          description,
+          price: String(price),
+        })
+        .returning();
+
+      // Link sports to facility
+      if (sportIds.length > 0) {
+        await tx
+          .insert(facilityToSport)
+          .values(sportIds.map((id) => ({ a: newFacility.id, b: id })));
+      }
+
+      return [newFacility];
     });
+
+    // Fetch facility with sports and location for response
+    const facilitySports = await db
+      .select({ id: sports.id, name: sports.name })
+      .from(facilityToSport)
+      .innerJoin(sports, eq(facilityToSport.b, sports.id))
+      .where(eq(facilityToSport.a, facility.id));
 
     return NextResponse.json(
       {
         success: true,
-        facility,
+        facility: {
+          ...facility,
+          sports: facilitySports,
+          location,
+        },
       },
       { status: 201 },
     );

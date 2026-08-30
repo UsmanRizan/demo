@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { bookings, wallets, walletTransactions } from "@/db/schema";
 
 const CANCEL_WINDOW_HOURS = 8;
 
@@ -27,17 +29,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: {
-        id: true,
-        playerId: true,
-        status: true,
-        paymentStatus: true,
-        startAt: true,
-        totalPrice: true,
-      },
-    });
+    const [booking] = await db
+      .select({
+        id: bookings.id,
+        playerId: bookings.playerId,
+        status: bookings.status,
+        paymentStatus: bookings.paymentStatus,
+        startAt: bookings.startAt,
+        totalPrice: bookings.totalPrice,
+      })
+      .from(bookings)
+      .where(eq(bookings.id, bookingId))
+      .limit(1);
 
     if (!booking || booking.playerId !== currentUser.id) {
       return NextResponse.json(
@@ -74,40 +77,50 @@ export async function POST(request: Request) {
     let walletCredited = false;
 
     // Cancel the booking
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
+    await db
+      .update(bookings)
+      .set({
         status: "CANCELLED",
         paymentStatus: "CANCELLED",
         expiresAt: null,
-      },
-    });
+      })
+      .where(eq(bookings.id, booking.id));
 
     // Credit wallet if the booking was paid (best-effort — don't fail the cancel if wallet tables are missing)
     if (shouldCreditWallet) {
       try {
-        await prisma.$transaction(async (tx) => {
-          const wallet = await tx.wallet.upsert({
-            where: { userId: currentUser.id },
-            create: {
-              userId: currentUser.id,
-              balance: refundAmount,
-            },
-            update: {
-              balance: {
-                increment: refundAmount,
-              },
-            },
-          });
+        await db.transaction(async (tx) => {
+          // Upsert wallet
+          const [existingWallet] = await tx
+            .select()
+            .from(wallets)
+            .where(eq(wallets.userId, currentUser.id))
+            .limit(1);
 
-          await tx.walletTransaction.create({
-            data: {
-              walletId: wallet.id,
-              amount: refundAmount,
-              type: "CREDIT",
-              bookingId: booking.id,
-              note: "Booking cancellation refund",
-            },
+          let wallet;
+          if (existingWallet) {
+            const newBalance = Number(existingWallet.balance) + refundAmount;
+            [wallet] = await tx
+              .update(wallets)
+              .set({ balance: String(newBalance) })
+              .where(eq(wallets.id, existingWallet.id))
+              .returning();
+          } else {
+            [wallet] = await tx
+              .insert(wallets)
+              .values({
+                userId: currentUser.id,
+                balance: String(refundAmount),
+              })
+              .returning();
+          }
+
+          await tx.insert(walletTransactions).values({
+            walletId: wallet.id,
+            amount: String(refundAmount),
+            type: "CREDIT",
+            bookingId: booking.id,
+            note: "Booking cancellation refund",
           });
         });
 

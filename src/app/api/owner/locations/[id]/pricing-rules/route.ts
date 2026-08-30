@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq, and, asc } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { locations, pricingRules } from "@/db/schema";
 
 type RouteContext = {
   params: Promise<{
@@ -18,23 +20,21 @@ export async function GET(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
 
-  const location = await prisma.location.findFirst({
-    where: {
-      id,
-      ownerId: user.id,
-    },
-  });
+  const [location] = await db
+    .select()
+    .from(locations)
+    .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+    .limit(1);
 
   if (!location) {
     return NextResponse.json({ error: "Location not found" }, { status: 404 });
   }
 
-  const rules = await prisma.pricingRule.findMany({
-    where: {
-      locationId: id,
-    },
-    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-  });
+  const rules = await db
+    .select()
+    .from(pricingRules)
+    .where(eq(pricingRules.locationId, id))
+    .orderBy(asc(pricingRules.dayOfWeek), asc(pricingRules.startTime));
 
   return NextResponse.json({ rules });
 }
@@ -49,12 +49,11 @@ export async function PUT(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    const location = await prisma.location.findFirst({
-      where: {
-        id,
-        ownerId: user.id,
-      },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json(
@@ -114,16 +113,14 @@ export async function PUT(request: Request, context: RouteContext) {
       }
     }
 
-    const updatedRules = await prisma.$transaction(async (tx) => {
-      await tx.pricingRule.deleteMany({
-        where: {
-          locationId: id,
-        },
-      });
+    const updatedRules = await db.transaction(async (tx) => {
+      await tx
+        .delete(pricingRules)
+        .where(eq(pricingRules.locationId, id));
 
       if (rules.length > 0) {
-        await tx.pricingRule.createMany({
-          data: rules.map(
+        await tx.insert(pricingRules).values(
+          rules.map(
             (rule: {
               name?: string;
               startTime: string;
@@ -136,20 +133,19 @@ export async function PUT(request: Request, context: RouteContext) {
               name: rule.name || null,
               startTime: rule.startTime,
               endTime: rule.endTime,
-              percentage: rule.percentage,
+              percentage: String(rule.percentage),
               dayOfWeek: rule.dayOfWeek ?? null,
               isActive: rule.isActive ?? true,
             }),
           ),
-        });
+        );
       }
 
-      return tx.pricingRule.findMany({
-        where: {
-          locationId: id,
-        },
-        orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-      });
+      return tx
+        .select()
+        .from(pricingRules)
+        .where(eq(pricingRules.locationId, id))
+        .orderBy(asc(pricingRules.dayOfWeek), asc(pricingRules.startTime));
     });
 
     return NextResponse.json({

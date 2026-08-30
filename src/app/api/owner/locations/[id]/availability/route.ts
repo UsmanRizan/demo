@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq, and, desc } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { locations, availabilities } from "@/db/schema";
 
 type RouteContext = {
   params: Promise<{
@@ -18,28 +20,24 @@ export async function GET(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
 
-  const location = await prisma.location.findFirst({
-    where: {
-      id,
-      ownerId: user.id,
-    },
-  });
+  const [location] = await db
+    .select()
+    .from(locations)
+    .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+    .limit(1);
 
   if (!location) {
     return NextResponse.json({ error: "Location not found" }, { status: 404 });
   }
 
-  const availability = await prisma.availability.findMany({
-    where: {
-      locationId: id,
-    },
-    orderBy: {
-      dayOfWeek: "asc",
-    },
-  });
+  const result = await db
+    .select()
+    .from(availabilities)
+    .where(eq(availabilities.locationId, id))
+    .orderBy(availabilities.dayOfWeek);
 
   return NextResponse.json({
-    availability,
+    availability: result,
   });
 }
 
@@ -53,12 +51,11 @@ export async function PUT(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    const location = await prisma.location.findFirst({
-      where: {
-        id,
-        ownerId: user.id,
-      },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json(
@@ -146,16 +143,15 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const availability = await prisma.$transaction(async (tx) => {
-      await tx.availability.deleteMany({
-        where: {
-          locationId: id,
-        },
-      });
+    // Transaction: delete all existing, insert new
+    const result = await db.transaction(async (tx) => {
+      await tx
+        .delete(availabilities)
+        .where(eq(availabilities.locationId, id));
 
       if (entries.length > 0) {
-        await tx.availability.createMany({
-          data: entries.map(
+        await tx.insert(availabilities).values(
+          entries.map(
             (entry: {
               dayOfWeek: number;
               startTime: string;
@@ -171,22 +167,19 @@ export async function PUT(request: Request, context: RouteContext) {
               isTwentyFourHour: entry.isTwentyFourHour ?? false,
             }),
           ),
-        });
+        );
       }
 
-      return tx.availability.findMany({
-        where: {
-          locationId: id,
-        },
-        orderBy: {
-          dayOfWeek: "asc",
-        },
-      });
+      return tx
+        .select()
+        .from(availabilities)
+        .where(eq(availabilities.locationId, id))
+        .orderBy(availabilities.dayOfWeek);
     });
 
     return NextResponse.json({
       success: true,
-      availability,
+      availability: result,
     });
   } catch (error) {
     console.error("Location availability error:", error);

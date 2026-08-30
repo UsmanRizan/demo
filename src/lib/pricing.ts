@@ -1,7 +1,10 @@
-import { prisma } from "@/lib/prisma";
+import { eq, and } from "drizzle-orm";
+
+import { db } from "@/lib/prisma";
+import { pricingRules } from "@/db/schema";
 import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 
-type PricingRule = {
+type PricingRuleRow = {
   startTime: string;
   endTime: string;
   percentage: number;
@@ -22,7 +25,7 @@ export function calculateDynamicPrice(
   basePrice: number,
   slotStartTime: string,
   dayOfWeek: number,
-  rules: PricingRule[],
+  rules: PricingRuleRow[],
 ): { adjustedPrice: number; surgePercentage: number } {
   const slotMinutes = timeToMinutes(slotStartTime);
 
@@ -68,18 +71,24 @@ export function calculateDynamicPrice(
  */
 export async function getPricingRulesForLocation(
   locationId: string,
-): Promise<PricingRule[]> {
-  const rules = await prisma.pricingRule.findMany({
-    where: {
-      locationId,
-      isActive: true,
-    },
-  });
+): Promise<PricingRuleRow[]> {
+  const rules = await db
+    .select({
+      startTime: pricingRules.startTime,
+      endTime: pricingRules.endTime,
+      percentage: pricingRules.percentage,
+      dayOfWeek: pricingRules.dayOfWeek,
+      isActive: pricingRules.isActive,
+    })
+    .from(pricingRules)
+    .where(
+      and(eq(pricingRules.locationId, locationId), eq(pricingRules.isActive, true)),
+    );
 
   return rules.map((r) => ({
     startTime: r.startTime,
     endTime: r.endTime,
-    percentage: r.percentage,
+    percentage: Number(r.percentage),
     dayOfWeek: r.dayOfWeek,
     isActive: r.isActive,
   }));

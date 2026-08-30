@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  bookings,
+  wallets,
+  walletTransactions,
+  facilities,
+  locations,
+  pricingRules,
+} from "@/db/schema";
 import { calculateDynamicPrice } from "@/lib/pricing";
 
 export async function POST(request: Request) {
@@ -30,27 +39,25 @@ export async function POST(request: Request) {
     }
 
     // Find the booking
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: {
-        id: true,
-        playerId: true,
-        status: true,
-        paymentStatus: true,
-        totalPrice: true,
-        expiresAt: true,
-        startAt: true,
-        endAt: true,
-        facility: {
-          select: {
-            price: true,
-            location: {
-              select: { ownerId: true },
-            },
-          },
-        },
-      },
-    });
+    const [booking] = await db
+      .select({
+        id: bookings.id,
+        playerId: bookings.playerId,
+        status: bookings.status,
+        paymentStatus: bookings.paymentStatus,
+        totalPrice: bookings.totalPrice,
+        expiresAt: bookings.expiresAt,
+        startAt: bookings.startAt,
+        endAt: bookings.endAt,
+        facilityId: facilities.id,
+        facilityPrice: facilities.price,
+        ownerId: locations.ownerId,
+      })
+      .from(bookings)
+      .innerJoin(facilities, eq(bookings.facilityId, facilities.id))
+      .innerJoin(locations, eq(facilities.locationId, locations.id))
+      .where(eq(bookings.id, bookingId))
+      .limit(1);
 
     if (!booking || booking.playerId !== currentUser.id) {
       return NextResponse.json(
@@ -78,9 +85,11 @@ export async function POST(request: Request) {
     const amount = Number(booking.totalPrice);
 
     // Get wallet
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId: currentUser.id },
-    });
+    const [wallet] = await db
+      .select()
+      .from(wallets)
+      .where(eq(wallets.userId, currentUser.id))
+      .limit(1);
 
     if (!wallet) {
       return NextResponse.json(
@@ -102,79 +111,100 @@ export async function POST(request: Request) {
     }
 
     // Process wallet payment in a transaction
-    await prisma.$transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       // Deduct from wallet
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          balance: {
-            decrement: amount,
-          },
-        },
-      });
+      const newBalance = walletBalance - amount;
+      await tx
+        .update(wallets)
+        .set({ balance: String(newBalance) })
+        .where(eq(wallets.id, wallet.id));
 
       // Record wallet transaction
-      await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount,
-          type: "DEBIT",
-          bookingId: booking.id,
-          note: "Booking payment",
-        },
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        amount: String(amount),
+        type: "DEBIT",
+        bookingId: booking.id,
+        note: "Booking payment",
       });
 
       // Update booking status
-      await tx.booking.update({
-        where: { id: booking.id },
-        data: {
+      await tx
+        .update(bookings)
+        .set({
           status: "CONFIRMED",
           paymentStatus: "PAID",
           paymentMethod: "wallet",
           expiresAt: null,
-        },
-      });
-    });      // Credit owner's wallet with earnings (including dynamic pricing)
-      try {
-        const start = new Date(booking.startAt);
-        const end = new Date(booking.endAt);
-        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        const ownerId = booking.facility.location.ownerId;
+        })
+        .where(eq(bookings.id, booking.id));
+    });
 
-        // Fetch pricing rules to calculate dynamic owner earnings
-        const pricingRules = await prisma.pricingRule.findMany({
-          where: {
-            location: { ownerId },
-            isActive: true,
-          },
-        });
+    // Credit owner's wallet with earnings (including dynamic pricing)
+    try {
+      const start = new Date(booking.startAt);
+      const end = new Date(booking.endAt);
+      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      const ownerId = booking.ownerId;
 
-        const startTimeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
-        const dayOfWeek = start.getDay();
-        const { adjustedPrice: dynamicOwnerPrice } = calculateDynamicPrice(
-          Number(booking.facility.price),
-          startTimeStr,
-          dayOfWeek,
-          pricingRules,
+      // Fetch pricing rules to calculate dynamic owner earnings
+      const rules = await db
+        .select()
+        .from(pricingRules)
+        .innerJoin(locations, eq(pricingRules.locationId, locations.id))
+        .where(
+          and(eq(locations.ownerId, ownerId), eq(pricingRules.isActive, true)),
         );
 
-        const ownerEarnings = hours * dynamicOwnerPrice;
+      const startTimeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+      const dayOfWeek = start.getDay();
+      const { adjustedPrice: dynamicOwnerPrice } = calculateDynamicPrice(
+        Number(booking.facilityPrice),
+        startTimeStr,
+        dayOfWeek,
+        rules.map((r) => ({
+          startTime: r.PricingRule.startTime,
+          endTime: r.PricingRule.endTime,
+          percentage: Number(r.PricingRule.percentage),
+          dayOfWeek: r.PricingRule.dayOfWeek,
+          isActive: r.PricingRule.isActive,
+        })),
+      );
+
+      const ownerEarnings = hours * dynamicOwnerPrice;
 
       if (ownerEarnings > 0 && ownerId) {
-        const ownerWallet = await prisma.wallet.upsert({
-          where: { userId: ownerId },
-          create: { userId: ownerId, balance: ownerEarnings },
-          update: { balance: { increment: ownerEarnings } },
-        });
+        // Upsert owner wallet
+        const [existingOwnerWallet] = await db
+          .select()
+          .from(wallets)
+          .where(eq(wallets.userId, ownerId))
+          .limit(1);
 
-        await prisma.walletTransaction.create({
-          data: {
-            walletId: ownerWallet.id,
-            amount: ownerEarnings,
-            type: "CREDIT",
-            bookingId: booking.id,
-            note: "Booking earning",
-          },
+        let ownerWallet;
+        if (existingOwnerWallet) {
+          const newBalance = Number(existingOwnerWallet.balance) + ownerEarnings;
+          [ownerWallet] = await db
+            .update(wallets)
+            .set({ balance: String(newBalance) })
+            .where(eq(wallets.id, existingOwnerWallet.id))
+            .returning();
+        } else {
+          [ownerWallet] = await db
+            .insert(wallets)
+            .values({
+              userId: ownerId,
+              balance: String(ownerEarnings),
+            })
+            .returning();
+        }
+
+        await db.insert(walletTransactions).values({
+          walletId: ownerWallet.id,
+          amount: String(ownerEarnings),
+          type: "CREDIT",
+          bookingId: booking.id,
+          note: "Booking earning",
         });
       }
     } catch (walletError) {

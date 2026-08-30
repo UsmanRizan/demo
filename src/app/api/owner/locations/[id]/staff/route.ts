@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq, and, desc } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { locations, locationStaff, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { normalizePhone } from "@/lib/utils";
@@ -22,32 +24,38 @@ export async function GET(
     const { id } = await params;
 
     // Verify ownership
-    const location = await prisma.location.findFirst({
-      where: { id, ownerId: user.id },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
 
-    const staffAssignments = await prisma.locationStaff.findMany({
-      where: { locationId: id },
-      include: {
+    // Get staff assignments with user info
+    const assignments = await db
+      .select({
+        id: locationStaff.id,
+        locationId: locationStaff.locationId,
+        staffId: locationStaff.staffId,
+        createdAt: locationStaff.createdAt,
         staff: {
-          select: {
-            id: true,
-            phone: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            createdAt: true,
-          },
+          id: users.id,
+          phone: users.phone,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          createdAt: users.createdAt,
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+      })
+      .from(locationStaff)
+      .innerJoin(users, eq(locationStaff.staffId, users.id))
+      .where(eq(locationStaff.locationId, id))
+      .orderBy(desc(locationStaff.createdAt));
 
-    return NextResponse.json({ staff: staffAssignments });
+    return NextResponse.json({ staff: assignments });
   } catch (error) {
     console.error("Get staff error:", error);
     return NextResponse.json(
@@ -72,9 +80,11 @@ export async function POST(
     const { id } = await params;
 
     // Verify ownership
-    const location = await prisma.location.findFirst({
-      where: { id, ownerId: user.id },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
@@ -106,7 +116,11 @@ export async function POST(
     const phone = normalizePhone(body.phone);
 
     // Find or create the staff user
-    let staffUser = await prisma.user.findUnique({ where: { phone } });
+    let [staffUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phone, phone))
+      .limit(1);
 
     if (staffUser) {
       // If the user exists and is not a PLAYER or STAFF, we can't assign them
@@ -119,34 +133,37 @@ export async function POST(
 
       // Update password for existing user
       const passwordHash = await hashPassword(body.password);
-      staffUser = await prisma.user.update({
-        where: { id: staffUser.id },
-        data: {
-          passwordHash,
-          role: "STAFF",
-        },
-      });
+      const [updated] = await db
+        .update(users)
+        .set({ passwordHash, role: "STAFF" })
+        .where(eq(users.id, staffUser.id))
+        .returning();
+      staffUser = updated;
     } else {
       // Create new staff user
       const passwordHash = await hashPassword(body.password);
-      staffUser = await prisma.user.create({
-        data: {
+      const [created] = await db
+        .insert(users)
+        .values({
           phone,
           passwordHash,
           role: "STAFF",
-        },
-      });
+        })
+        .returning();
+      staffUser = created;
     }
 
     // Check if already assigned
-    const existingAssignment = await prisma.locationStaff.findUnique({
-      where: {
-        locationId_staffId: {
-          locationId: id,
-          staffId: staffUser.id,
-        },
-      },
-    });
+    const [existingAssignment] = await db
+      .select()
+      .from(locationStaff)
+      .where(
+        and(
+          eq(locationStaff.locationId, id),
+          eq(locationStaff.staffId, staffUser.id),
+        ),
+      )
+      .limit(1);
 
     if (existingAssignment) {
       return NextResponse.json(
@@ -156,26 +173,30 @@ export async function POST(
     }
 
     // Assign staff to location
-    const assignment = await prisma.locationStaff.create({
-      data: {
+    const [assignment] = await db
+      .insert(locationStaff)
+      .values({
         locationId: id,
         staffId: staffUser.id,
-      },
-      include: {
+      })
+      .returning();
+
+    return NextResponse.json(
+      {
         staff: {
-          select: {
-            id: true,
-            phone: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            createdAt: true,
+          ...assignment,
+          staff: {
+            id: staffUser.id,
+            phone: staffUser.phone,
+            firstName: staffUser.firstName,
+            lastName: staffUser.lastName,
+            email: staffUser.email,
+            createdAt: staffUser.createdAt,
           },
         },
       },
-    });
-
-    return NextResponse.json({ staff: assignment }, { status: 201 });
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Assign staff error:", error);
     return NextResponse.json(
@@ -200,9 +221,11 @@ export async function DELETE(
     const { id } = await params;
 
     // Verify ownership
-    const location = await prisma.location.findFirst({
-      where: { id, ownerId: user.id },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
@@ -218,14 +241,16 @@ export async function DELETE(
     }
 
     // Check if assignment exists
-    const existingAssignment = await prisma.locationStaff.findUnique({
-      where: {
-        locationId_staffId: {
-          locationId: id,
-          staffId: body.staffId,
-        },
-      },
-    });
+    const [existingAssignment] = await db
+      .select()
+      .from(locationStaff)
+      .where(
+        and(
+          eq(locationStaff.locationId, id),
+          eq(locationStaff.staffId, body.staffId),
+        ),
+      )
+      .limit(1);
 
     if (!existingAssignment) {
       return NextResponse.json(
@@ -234,14 +259,14 @@ export async function DELETE(
       );
     }
 
-    await prisma.locationStaff.delete({
-      where: {
-        locationId_staffId: {
-          locationId: id,
-          staffId: body.staffId,
-        },
-      },
-    });
+    await db
+      .delete(locationStaff)
+      .where(
+        and(
+          eq(locationStaff.locationId, id),
+          eq(locationStaff.staffId, body.staffId),
+        ),
+      );
 
     return NextResponse.json({ success: true });
   } catch (error) {

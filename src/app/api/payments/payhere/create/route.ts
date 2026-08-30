@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { eq, and, lt, gt, or, desc } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
 import { calculatePlayerPrice } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  bookings,
+  facilities,
+  locations,
+  users,
+  userAddresses,
+  availabilities,
+  pricingRules,
+  facilityToSport,
+  sports,
+} from "@/db/schema";
 import { calculateDynamicPrice } from "@/lib/pricing";
 import { buildPayHerePayment } from "@/lib/payhere-helpers";
 import {
@@ -54,15 +66,11 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      */
 
-    const customer = await prisma.user.findUnique({
-      where: {
-        id: currentUser.id,
-      },
-
-      include: {
-        address: true,
-      },
-    });
+    const [customer] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, currentUser.id))
+      .limit(1);
 
     if (!customer) {
       return NextResponse.json(
@@ -75,13 +83,19 @@ export async function POST(request: Request) {
       );
     }
 
+    const [address] = await db
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, currentUser.id))
+      .limit(1);
+
     if (
       !customer.firstName ||
       !customer.lastName ||
       !customer.email ||
-      !customer.address?.addressLine1 ||
-      !customer.address.city ||
-      !customer.address.country
+      !address?.addressLine1 ||
+      !address.city ||
+      !address.country
     ) {
       return NextResponse.json(
         {
@@ -239,27 +253,20 @@ export async function POST(request: Request) {
 
     const now = new Date();
 
-    await prisma.booking.updateMany({
-      where: {
-        status: "PENDING",
-
-        paymentStatus: "PENDING",
-
-        expiresAt: {
-          not: null,
-
-          lte: now,
-        },
-      },
-
-      data: {
+    await db
+      .update(bookings)
+      .set({
         status: "CANCELLED",
-
         paymentStatus: "CANCELLED",
-
         expiresAt: null,
-      },
-    });
+      })
+      .where(
+        and(
+          eq(bookings.status, "PENDING"),
+          eq(bookings.paymentStatus, "PENDING"),
+          lt(bookings.expiresAt, now),
+        ),
+      );
 
     /*
      * -------------------------------------------------------
@@ -267,38 +274,29 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      */
 
-    const facility = await prisma.facility.findFirst({
-      where: {
-        id: facilityId,
+    // Find facility with active location
+    const [facilityWithLocation] = await db
+      .select({
+        facilityId: facilities.id,
+        facilityName: facilities.name,
+        facilityDescription: facilities.description,
+        facilityPrice: facilities.price,
+        facilityIsActive: facilities.isActive,
+        locationId: locations.id,
+        locationIsActive: locations.isActive,
+      })
+      .from(facilities)
+      .innerJoin(locations, eq(facilities.locationId, locations.id))
+      .where(
+        and(
+          eq(facilities.id, facilityId),
+          eq(facilities.isActive, true),
+          eq(locations.isActive, true),
+        ),
+      )
+      .limit(1);
 
-        isActive: true,
-
-        location: {
-          isActive: true,
-        },
-      },
-
-      include: {
-        sports: true,
-
-        location: {
-          include: {
-            availabilities: {
-              where: {
-                isActive: true,
-              },
-            },
-            pricingRules: {
-              where: {
-                isActive: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!facility) {
+    if (!facilityWithLocation) {
       return NextResponse.json(
         {
           error: "Facility not found or unavailable.",
@@ -309,6 +307,35 @@ export async function POST(request: Request) {
       );
     }
 
+    // Load facility sports
+    const facilitySports = await db
+      .select({ id: sports.id, name: sports.name })
+      .from(facilityToSport)
+      .innerJoin(sports, eq(facilityToSport.b, sports.id))
+      .where(eq(facilityToSport.a, facilityWithLocation.facilityId));
+
+    // Load availability for this location
+    const locationAvailabilities = await db
+      .select()
+      .from(availabilities)
+      .where(
+        and(
+          eq(availabilities.locationId, facilityWithLocation.locationId),
+          eq(availabilities.isActive, true),
+        ),
+      );
+
+    // Load pricing rules for this location
+    const locationPricingRules = await db
+      .select()
+      .from(pricingRules)
+      .where(
+        and(
+          eq(pricingRules.locationId, facilityWithLocation.locationId),
+          eq(pricingRules.isActive, true),
+        ),
+      );
+
     /*
      * -------------------------------------------------------
      * 8. Check location opening hours
@@ -317,7 +344,7 @@ export async function POST(request: Request) {
 
     const dayOfWeek = startAt.getDay();
 
-    const availability = facility.location.availabilities.find(
+    const availability = locationAvailabilities.find(
       (item) => item.dayOfWeek === dayOfWeek,
     );
 
@@ -372,10 +399,16 @@ export async function POST(request: Request) {
     // Apply dynamic pricing based on start time and day of week
     const startTimeStr = `${String(startAt.getHours()).padStart(2, "0")}:${String(startAt.getMinutes()).padStart(2, "0")}`;
     const { adjustedPrice } = calculateDynamicPrice(
-      Number(facility.price),
+      Number(facilityWithLocation.facilityPrice),
       startTimeStr,
       dayOfWeek,
-      facility.location.pricingRules,
+      locationPricingRules.map((r) => ({
+        startTime: r.startTime,
+        endTime: r.endTime,
+        percentage: Number(r.percentage),
+        dayOfWeek: r.dayOfWeek,
+        isActive: r.isActive,
+      })),
     );
 
     const pricePerHour = calculatePlayerPrice(adjustedPrice);
@@ -399,31 +432,33 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      */
 
-    const existingPending = await prisma.booking.findFirst({
-      where: {
-        playerId: customer.id,
-
-        facilityId: facility.id,
-
-        startAt,
-
-        endAt,
-
-        status: "PENDING",
-
-        paymentStatus: "PENDING",
-
-        expiresAt: {
-          gt: now,
-        },
-      },
-
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const [existingPending] = await db
+      .select()
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.playerId, customer.id),
+          eq(bookings.facilityId, facilityWithLocation.facilityId),
+          eq(bookings.startAt, startAt),
+          eq(bookings.endAt, endAt),
+          eq(bookings.status, "PENDING"),
+          eq(bookings.paymentStatus, "PENDING"),
+          gt(bookings.expiresAt, now),
+        ),
+      )
+      .orderBy(desc(bookings.createdAt))
+      .limit(1);
 
     if (existingPending) {
+      const facility = {
+        id: facilityWithLocation.facilityId,
+        name: facilityWithLocation.facilityName,
+        description: facilityWithLocation.facilityDescription,
+        price: facilityWithLocation.facilityPrice,
+        isActive: facilityWithLocation.facilityIsActive,
+        sports: facilitySports.map((s) => ({ id: s.id, name: s.name })),
+      };
+
       const payment = buildPayHerePayment({
         booking: existingPending,
 
@@ -437,13 +472,13 @@ export async function POST(request: Request) {
           phone,
 
           address: {
-            addressLine1: customer.address.addressLine1,
+            addressLine1: address.addressLine1,
 
-            addressLine2: customer.address.addressLine2,
+            addressLine2: address.addressLine2,
 
-            city: customer.address.city,
+            city: address.city,
 
-            country: customer.address.country,
+            country: address.country,
           },
         },
 
@@ -469,42 +504,30 @@ export async function POST(request: Request) {
      * -------------------------------------------------------
      */
 
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        facilityId: facility.id,
-
-        startAt: {
-          lt: endAt,
-        },
-
-        endAt: {
-          gt: startAt,
-        },
-
-        OR: [
-          {
-            status: "CONFIRMED",
-          },
-
-          {
-            status: "PENDING",
-
-            paymentStatus: "PENDING",
-
-            expiresAt: {
-              gt: now,
-            },
-          },
-        ],
-      },
-
-      select: {
-        id: true,
-        status: true,
-        paymentStatus: true,
-        expiresAt: true,
-      },
-    });
+    const [conflictingBooking] = await db
+      .select({
+        id: bookings.id,
+        status: bookings.status,
+        paymentStatus: bookings.paymentStatus,
+        expiresAt: bookings.expiresAt,
+      })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.facilityId, facilityWithLocation.facilityId),
+          lt(bookings.startAt, endAt),
+          gt(bookings.endAt, startAt),
+          or(
+            eq(bookings.status, "CONFIRMED"),
+            and(
+              eq(bookings.status, "PENDING"),
+              eq(bookings.paymentStatus, "PENDING"),
+              gt(bookings.expiresAt, now),
+            ),
+          )!,
+        ),
+      )
+      .limit(1);
 
     if (conflictingBooking) {
       return NextResponse.json(
@@ -539,17 +562,18 @@ export async function POST(request: Request) {
 
     const expiresAt = new Date(Date.now() + PAYMENT_HOLD_MINUTES * 60 * 1000);
 
-    const booking = await prisma.booking.create({
-      data: {
+    const [booking] = await db
+      .insert(bookings)
+      .values({
         playerId: customer.id,
 
-        facilityId: facility.id,
+        facilityId: facilityWithLocation.facilityId,
 
         startAt,
 
         endAt,
 
-        totalPrice,
+        totalPrice: String(totalPrice),
 
         status: "PENDING",
 
@@ -558,14 +582,23 @@ export async function POST(request: Request) {
         orderId,
 
         expiresAt,
-      },
-    });
+      })
+      .returning();
 
     /*
      * -------------------------------------------------------
      * 14. Generate PayHere payment
      * -------------------------------------------------------
      */
+
+    const facility = {
+      id: facilityWithLocation.facilityId,
+      name: facilityWithLocation.facilityName,
+      description: facilityWithLocation.facilityDescription,
+      price: facilityWithLocation.facilityPrice,
+      isActive: facilityWithLocation.facilityIsActive,
+      sports: facilitySports.map((s) => ({ id: s.id, name: s.name })),
+    };
 
     const payment = buildPayHerePayment({
       booking,
@@ -580,13 +613,13 @@ export async function POST(request: Request) {
         phone,
 
         address: {
-          addressLine1: customer.address.addressLine1,
+          addressLine1: address.addressLine1,
 
-          addressLine2: customer.address.addressLine2,
+          addressLine2: address.addressLine2,
 
-          city: customer.address.city,
+          city: address.city,
 
-          country: customer.address.country,
+          country: address.country,
         },
       },
 

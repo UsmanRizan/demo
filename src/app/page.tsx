@@ -1,5 +1,8 @@
+import { eq, and } from "drizzle-orm";
+
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { sports } from "@/db/schema";
 import { getSportIcon } from "@/lib/sport-icons";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -39,7 +42,7 @@ const FEATURES = [
   {
     icon: (
       <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="square" strokeLinejoin="miter" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043a3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+        <path strokeLinecap="square" strokeLinejoin="miter" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043A3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043a3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
       </svg>
     ),
     title: "Instant Confirmation",
@@ -104,13 +107,13 @@ const TRUST_LOGOS = [
 ];
 
 export default async function HomePage() {
-  const [user, sports] = await Promise.all([
+  const [user, sportsList] = await Promise.all([
     getCurrentUser(),
-    prisma.sport.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+    db
+      .select({ id: sports.id, name: sports.name })
+      .from(sports)
+      .where(eq(sports.isActive, true))
+      .orderBy(sports.name),
   ]);
 
   return (
@@ -207,7 +210,7 @@ export default async function HomePage() {
           </div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sports.map((sport) => (
+            {sportsList.map((sport) => (
               <a
                 key={sport.id}
                 href={`/player/find-booking?sport=${sport.id}`}
@@ -391,7 +394,7 @@ export default async function HomePage() {
       <section className="border-b-[3px] border-black bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center">
-            <p className="text-sm font-bold uppercase tracking-wider text-black">
+            <p className="text-sm font-bold uppercase tracking-wider text-gray-500">
               Trusted across Sri Lanka
             </p>
             <h2 className="mt-2 text-3xl font-bold uppercase sm:text-4xl">

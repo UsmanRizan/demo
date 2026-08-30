@@ -4,19 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.38.3",
     "jose": "^6.2.9",
     "leaflet": "^1.9.4",
     "next": "16.3.1",
-    "pg": "^8.23.0",
+    "postgres": "^3.4.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-leaflet": "^5.0.0"
@@ -26,12 +28,13 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
+    "@types/pg": "^8.11.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "drizzle-kit": "^0.30.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
-    "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5"

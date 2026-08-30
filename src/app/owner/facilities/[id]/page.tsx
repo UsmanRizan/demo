@@ -1,7 +1,14 @@
 import { notFound, redirect } from "next/navigation";
+import { eq, and, asc } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  facilities,
+  locations,
+  sports,
+  facilityToSport,
+} from "@/db/schema";
 import { getSportIcon } from "@/lib/sport-icons";
 import FacilityPriceEditor from "@/components/owner/FacilityPriceEditor";
 import FacilitySportsEditor from "@/components/owner/FacilitySportsEditor";
@@ -25,28 +32,40 @@ export default async function FacilityPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const [facility, allSports] = await Promise.all([
-    prisma.facility.findFirst({
-      where: {
-        id,
-        location: {
-          ownerId: user.id,
-        },
-      },
-      include: {
-        sports: true,
-        location: true,
-      },
-    }),
-    prisma.sport.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  // Find facility with location ownership check
+  const [facilityWithLocation] = await db
+    .select({
+      facility: facilities,
+      location: locations,
+    })
+    .from(facilities)
+    .innerJoin(locations, eq(facilities.locationId, locations.id))
+    .where(and(eq(facilities.id, id), eq(locations.ownerId, user.id)))
+    .limit(1);
 
-  if (!facility) {
+  if (!facilityWithLocation) {
     notFound();
   }
+
+  // Get facility sports
+  const facilitySportsList = await db
+    .select({ id: sports.id, name: sports.name, slug: sports.slug, isActive: sports.isActive })
+    .from(facilityToSport)
+    .innerJoin(sports, eq(facilityToSport.b, sports.id))
+    .where(eq(facilityToSport.a, id));
+
+  // Get all active sports
+  const allSportsList = await db
+    .select()
+    .from(sports)
+    .where(eq(sports.isActive, true))
+    .orderBy(sports.name);
+
+  const facility = {
+    ...facilityWithLocation.facility,
+    location: facilityWithLocation.location,
+    sports: facilitySportsList,
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
@@ -62,10 +81,14 @@ export default async function FacilityPage({ params }: PageProps) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">
-                {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
+                {facility.sports
+                  .map((s) => `${getSportIcon(s.name)} ${s.name}`)
+                  .join(", ")}
               </p>
 
-              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{facility.name}</h1>
+              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
+                {facility.name}
+              </h1>
 
               <p className="mt-2 text-gray-600">{facility.location.name}</p>
             </div>
@@ -76,13 +99,15 @@ export default async function FacilityPage({ params }: PageProps) {
           </div>
 
           {facility.description && (
-            <p className="mt-4 text-gray-600 sm:mt-6">{facility.description}</p>
+            <p className="mt-4 text-gray-600 sm:mt-6">
+              {facility.description}
+            </p>
           )}
 
           <FacilitySportsEditor
             facilityId={facility.id}
             initialSports={facility.sports}
-            allSports={allSports}
+            allSports={allSportsList}
           />
 
           <FacilityPriceEditor
@@ -94,8 +119,8 @@ export default async function FacilityPage({ params }: PageProps) {
             <h2 className="text-lg font-semibold">Availability</h2>
 
             <p className="mt-2 text-sm text-gray-600">
-              We'll configure the facility's weekly opening hours and bookable
-              time slots in the next step.
+              We&apos;ll configure the facility&apos;s weekly opening hours and
+              bookable time slots in the next step.
             </p>
           </div>
         </div>

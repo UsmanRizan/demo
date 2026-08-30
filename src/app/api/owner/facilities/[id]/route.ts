@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
+import { eq, and, inArray } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import {
+  facilities,
+  locations,
+  sports,
+  facilityToSport,
+} from "@/db/schema";
 
 type RouteContext = {
   params: Promise<{
@@ -25,21 +32,18 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const body = await request.json();
 
-    const facility = await prisma.facility.findFirst({
-      where: {
-        id,
-        location: {
-          ownerId: currentUser.id,
-        },
-      },
-      include: { sports: true },
-    });
+    const [facility] = await db
+      .select()
+      .from(facilities)
+      .innerJoin(locations, eq(facilities.locationId, locations.id))
+      .where(and(eq(facilities.id, id), eq(locations.ownerId, currentUser.id)))
+      .limit(1);
 
     if (!facility) {
       return NextResponse.json({ error: "Facility not found" }, { status: 404 });
     }
 
-    const data: { price?: number; sports?: { set: { id: string }[] } } = {};
+    const updateData: Record<string, unknown> = {};
 
     if (body.price !== undefined) {
       const price = Number(body.price);
@@ -51,7 +55,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         );
       }
 
-      data.price = price;
+      updateData.price = String(price);
     }
 
     if (body.sportIds !== undefined) {
@@ -74,36 +78,62 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
 
       // Verify all sports exist and are active
-      const sports = await prisma.sport.findMany({
-        where: { id: { in: sportIds }, isActive: true },
-      });
+      const activeSports = await db
+        .select()
+        .from(sports)
+        .where(and(inArray(sports.id, sportIds), eq(sports.isActive, true)));
 
-      if (sports.length !== sportIds.length) {
+      if (activeSports.length !== sportIds.length) {
         return NextResponse.json(
           { error: "One or more sports not found or inactive" },
           { status: 404 },
         );
       }
 
-      data.sports = { set: sportIds.map((id) => ({ id })) };
+      // Update sport associations in a transaction
+      await db.transaction(async (tx) => {
+        // Remove old associations
+        await tx
+          .delete(facilityToSport)
+          .where(eq(facilityToSport.a, facility.Facility.id));
+
+        // Add new associations
+        if (sportIds.length > 0) {
+          await tx
+            .insert(facilityToSport)
+            .values(sportIds.map((sportId) => ({ a: facility.Facility.id, b: sportId })));
+        }
+      });
     }
 
-    const updated = await prisma.facility.update({
-      where: { id: facility.id },
-      data,
-      include: {
-        sports: true,
-        location: true,
-      },
-    });
+    // Update facility data (price, etc.)
+    if (Object.keys(updateData).length > 0) {
+      await db
+        .update(facilities)
+        .set(updateData)
+        .where(eq(facilities.id, facility.Facility.id));
+    }
+
+    // Fetch updated facility with sports
+    const facilitySports = await db
+      .select({ id: sports.id, name: sports.name })
+      .from(facilityToSport)
+      .innerJoin(sports, eq(facilityToSport.b, sports.id))
+      .where(eq(facilityToSport.a, facility.Facility.id));
+
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(eq(locations.id, facility.Facility.locationId))
+      .limit(1);
 
     return NextResponse.json({
       success: true,
       facility: {
-        id: updated.id,
-        name: updated.name,
-        price: updated.price.toString(),
-        sports: updated.sports,
+        id: facility.Facility.id,
+        name: facility.Facility.name,
+        price: facility.Facility.price.toString(),
+        sports: facilitySports,
       },
     });
   } catch (error) {

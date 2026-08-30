@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq, and, or } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { sports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
@@ -10,14 +12,10 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const sports = await prisma.sport.findMany({
-    orderBy: {
-      name: "asc",
-    },
-  });
+  const result = await db.select().from(sports).orderBy(sports.name);
 
   return NextResponse.json({
-    sports,
+    sports: result,
   });
 }
 
@@ -31,65 +29,46 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const { name } = body;
 
-    if (!name) {
+    if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
         { error: "Sport name is required" },
         { status: 400 },
       );
     }
 
-    const slug = name
+    const trimmedName = name.trim();
+    const slug = trimmedName
       .toLowerCase()
-      .trim()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(/^-|-$/g, "");
 
-    if (!slug) {
+    // Check for duplicate name or slug
+    const [existing] = await db
+      .select()
+      .from(sports)
+      .where(or(eq(sports.name, trimmedName), eq(sports.slug, slug)))
+      .limit(1);
+
+    if (existing) {
       return NextResponse.json(
-        { error: "Invalid sport name" },
-        { status: 400 },
-      );
-    }
-
-    const existingSport = await prisma.sport.findFirst({
-      where: {
-        OR: [
-          {
-            name: {
-              equals: name,
-              mode: "insensitive",
-            },
-          },
-          {
-            slug,
-          },
-        ],
-      },
-    });
-
-    if (existingSport) {
-      return NextResponse.json(
-        { error: "Sport already exists" },
+        { error: "A sport with this name already exists" },
         { status: 409 },
       );
     }
 
-    const sport = await prisma.sport.create({
-      data: {
-        name,
+    const [sport] = await db
+      .insert(sports)
+      .values({
+        name: trimmedName,
         slug,
-      },
-    });
+      })
+      .returning();
 
-    return NextResponse.json({
-      success: true,
-      sport,
-    });
+    return NextResponse.json({ sport }, { status: 201 });
   } catch (error) {
     console.error("Create sport error:", error);
-
     return NextResponse.json(
       { error: "Failed to create sport" },
       { status: 500 },

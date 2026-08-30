@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq, and, desc } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { otpCodes, users } from "@/db/schema";
 import { verifyOtpHash } from "@/lib/otp";
 import { createSession } from "@/lib/session";
 import { normalizePhone } from "@/lib/utils";
@@ -24,15 +26,12 @@ export async function POST(request: Request) {
     const phone = normalizePhone(body.phone);
     const code = body.code.trim();
 
-    const otpRecord = await prisma.otpCode.findFirst({
-      where: {
-        phone,
-        verified: false,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const [otpRecord] = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.phone, phone), eq(otpCodes.verified, false)))
+      .orderBy(desc(otpCodes.createdAt))
+      .limit(1);
 
     if (!otpRecord) {
       return NextResponse.json(
@@ -42,11 +41,7 @@ export async function POST(request: Request) {
     }
 
     if (otpRecord.expiresAt < new Date()) {
-      await prisma.otpCode.delete({
-        where: {
-          id: otpRecord.id,
-        },
-      });
+      await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
 
       return NextResponse.json(
         { error: "OTP has expired. Request a new OTP." },
@@ -64,39 +59,39 @@ export async function POST(request: Request) {
     const isValid = verifyOtpHash(code, otpRecord.codeHash);
 
     if (!isValid) {
-      await prisma.otpCode.update({
-        where: {
-          id: otpRecord.id,
-        },
-        data: {
-          attempts: {
-            increment: 1,
-          },
-        },
-      });
+      await db
+        .update(otpCodes)
+        .set({ attempts: otpRecord.attempts + 1 })
+        .where(eq(otpCodes.id, otpRecord.id));
 
       return NextResponse.json({ error: "Invalid OTP" }, { status: 401 });
     }
 
-    await prisma.otpCode.update({
-      where: {
-        id: otpRecord.id,
-      },
-      data: {
-        verified: true,
-      },
-    });
+    await db
+      .update(otpCodes)
+      .set({ verified: true })
+      .where(eq(otpCodes.id, otpRecord.id));
 
-    const user = await prisma.user.upsert({
-      where: {
-        phone,
-      },
-      update: {},
-      create: {
-        phone,
-        role: "PLAYER",
-      },
-    });
+    // Upsert user: try to find existing, otherwise create
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phone, phone))
+      .limit(1);
+
+    let user;
+    if (existingUser) {
+      [user] = await db
+        .update(users)
+        .set({ updatedAt: new Date() })
+        .where(eq(users.phone, phone))
+        .returning();
+    } else {
+      [user] = await db
+        .insert(users)
+        .values({ phone, role: "PLAYER" })
+        .returning();
+    }
 
     const hasPassword = !!user.passwordHash;
 

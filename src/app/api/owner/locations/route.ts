@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq, desc } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { locations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
@@ -10,17 +12,14 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const locations = await prisma.location.findMany({
-    where: {
-      ownerId: user.id,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const result = await db
+    .select()
+    .from(locations)
+    .where(eq(locations.ownerId, user.id))
+    .orderBy(desc(locations.createdAt));
 
   return NextResponse.json({
-    locations,
+    locations: result,
   });
 }
 
@@ -92,18 +91,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const location = await prisma.location.create({
-      data: {
+    const [location] = await db
+      .insert(locations)
+      .values({
         ownerId: user.id,
         name,
         address,
         city,
         description,
         phone,
-        latitude,
-        longitude,
-      },
-    });
+        latitude: String(latitude),
+        longitude: String(longitude),
+      })
+      .returning();
 
     return NextResponse.json(
       {

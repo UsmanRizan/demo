@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { eq, and, gte, lt, gt, inArray } from "drizzle-orm";
 
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { locations, blockedDates, bookings } from "@/db/schema";
 
 type RouteContext = {
   params: Promise<{
@@ -18,30 +20,25 @@ export async function GET(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
 
-  const location = await prisma.location.findFirst({
-    where: {
-      id,
-      ownerId: user.id,
-    },
-  });
+  const [location] = await db
+    .select()
+    .from(locations)
+    .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+    .limit(1);
 
   if (!location) {
     return NextResponse.json({ error: "Location not found" }, { status: 404 });
   }
 
-  const blockedDates = await prisma.blockedDate.findMany({
-    where: {
-      locationId: id,
-      date: {
-        gte: new Date(),
-      },
-    },
-    orderBy: {
-      date: "asc",
-    },
-  });
+  const result = await db
+    .select()
+    .from(blockedDates)
+    .where(
+      and(eq(blockedDates.locationId, id), gte(blockedDates.date, new Date())),
+    )
+    .orderBy(blockedDates.date);
 
-  return NextResponse.json({ blockedDates });
+  return NextResponse.json({ blockedDates: result });
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -54,12 +51,11 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    const location = await prisma.location.findFirst({
-      where: {
-        id,
-        ownerId: user.id,
-      },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json(
@@ -98,22 +94,19 @@ export async function POST(request: Request, context: RouteContext) {
     const dayStart = new Date(date + "T00:00:00");
     const dayEnd = new Date(date + "T23:59:59");
 
-    const existingBooking = await prisma.booking.findFirst({
-      where: {
-        facility: {
-          locationId: id,
-        },
-        status: {
-          in: ["PENDING", "CONFIRMED"],
-        },
-        startAt: {
-          lt: dayEnd,
-        },
-        endAt: {
-          gt: dayStart,
-        },
-      },
-    });
+    const [existingBooking] = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .innerJoin(locations, eq(bookings.facilityId, locations.id))
+      .where(
+        and(
+          eq(locations.id, id),
+          inArray(bookings.status, ["PENDING", "CONFIRMED"]),
+          lt(bookings.startAt, dayEnd),
+          gt(bookings.endAt, dayStart),
+        ),
+      )
+      .limit(1);
 
     if (existingBooking) {
       return NextResponse.json(
@@ -125,22 +118,35 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const blocked = await prisma.blockedDate.upsert({
-      where: {
-        locationId_date: {
+    // Upsert: check existing
+    const [existing] = await db
+      .select()
+      .from(blockedDates)
+      .where(
+        and(
+          eq(blockedDates.locationId, id),
+          eq(blockedDates.date, blockedDate),
+        ),
+      )
+      .limit(1);
+
+    let blocked;
+    if (existing) {
+      [blocked] = await db
+        .update(blockedDates)
+        .set({ reason: reason || null })
+        .where(eq(blockedDates.id, existing.id))
+        .returning();
+    } else {
+      [blocked] = await db
+        .insert(blockedDates)
+        .values({
           locationId: id,
           date: blockedDate,
-        },
-      },
-      update: {
-        reason: reason || null,
-      },
-      create: {
-        locationId: id,
-        date: blockedDate,
-        reason: reason || null,
-      },
-    });
+          reason: reason || null,
+        })
+        .returning();
+    }
 
     return NextResponse.json({ blockedDate: blocked });
   } catch (error) {
@@ -162,12 +168,11 @@ export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    const location = await prisma.location.findFirst({
-      where: {
-        id,
-        ownerId: user.id,
-      },
-    });
+    const [location] = await db
+      .select()
+      .from(locations)
+      .where(and(eq(locations.id, id), eq(locations.ownerId, user.id)))
+      .limit(1);
 
     if (!location) {
       return NextResponse.json(
@@ -186,12 +191,14 @@ export async function DELETE(request: Request, context: RouteContext) {
       );
     }
 
-    await prisma.blockedDate.deleteMany({
-      where: {
-        id: blockedDateId,
-        locationId: id,
-      },
-    });
+    await db
+      .delete(blockedDates)
+      .where(
+        and(
+          eq(blockedDates.id, blockedDateId),
+          eq(blockedDates.locationId, id),
+        ),
+      );
 
     return NextResponse.json({ success: true });
   } catch (error) {

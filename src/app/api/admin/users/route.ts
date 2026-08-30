@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq, desc } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
@@ -11,30 +13,25 @@ export async function GET() {
       {
         error: "Unauthorized",
       },
-      {
-        status: 403,
-      },
+      { status: 403 },
     );
   }
 
-  const users = await prisma.user.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-
-    select: {
-      id: true,
-      phone: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
-  });
+  const result = await db
+    .select({
+      id: users.id,
+      phone: users.phone,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
 
   return NextResponse.json({
-    users,
+    users: result,
   });
 }
 
@@ -46,9 +43,7 @@ export async function POST(request: Request) {
       {
         error: "Unauthorized",
       },
-      {
-        status: 403,
-      },
+      { status: 403 },
     );
   }
 
@@ -78,9 +73,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const existingUser = await prisma.user.findUnique({
-    where: { phone: normalizedPhone },
-  });
+  const [existingUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.phone, normalizedPhone))
+    .limit(1);
 
   if (existingUser) {
     return NextResponse.json(
@@ -89,21 +86,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const user = await prisma.user.create({
-    data: {
+  const [user] = await db
+    .insert(users)
+    .values({
       phone: normalizedPhone,
       role,
-    },
-    select: {
-      id: true,
-      phone: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
-  });
+    })
+    .returning();
 
-  return NextResponse.json({ user }, { status: 201 });
+  return NextResponse.json(
+    {
+      user: {
+        id: user.id,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+      },
+    },
+    { status: 201 },
+  );
 }

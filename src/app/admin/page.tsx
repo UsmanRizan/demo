@@ -1,16 +1,19 @@
+import { count } from "drizzle-orm";
+
 import { requireAdmin } from "@/lib/admin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SetPasswordPrompt from "@/components/SetPasswordPrompt";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { users, sports, bookings } from "@/db/schema";
 
 export default async function AdminDashboard() {
   const user = await requireAdmin();
 
   const [totalUsers, totalSports, totalBookings] = await Promise.all([
-    prisma.user.count(),
-    prisma.sport.count(),
-    prisma.booking.count(),
+    db.select({ value: count() }).from(users),
+    db.select({ value: count() }).from(sports),
+    db.select({ value: count() }).from(bookings),
   ]);
 
   return (
@@ -30,7 +33,7 @@ export default async function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 uppercase font-bold">Total Users</p>
-                <p className="mt-1 text-2xl font-bold">{totalUsers}</p>
+                <p className="mt-1 text-2xl font-bold">{totalUsers[0].value}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-black text-white">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -44,7 +47,7 @@ export default async function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 uppercase font-bold">Sports</p>
-                <p className="mt-1 text-2xl font-bold">{totalSports}</p>
+                <p className="mt-1 text-2xl font-bold">{totalSports[0].value}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-black text-white">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -58,7 +61,7 @@ export default async function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 uppercase font-bold">Bookings</p>
-                <p className="mt-1 text-2xl font-bold">{totalBookings}</p>
+                <p className="mt-1 text-2xl font-bold">{totalBookings[0].value}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-black text-white">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

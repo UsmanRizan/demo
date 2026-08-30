@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
+import { sports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 
-type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-export async function PATCH(request: Request, context: RouteContext) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const currentUser = await getCurrentUser();
 
   if (!currentUser || currentUser.role !== "ADMIN") {
@@ -17,32 +16,32 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const { id } = await context.params;
+    const { id } = await params;
     const body = await request.json();
 
-    if (typeof body.isActive !== "boolean") {
-      return NextResponse.json(
-        { error: "isActive must be true or false" },
-        { status: 400 },
-      );
+    const updateData: Record<string, unknown> = {};
+
+    if (body.isActive !== undefined) {
+      updateData.isActive = body.isActive;
     }
 
-    const sport = await prisma.sport.update({
-      where: {
-        id,
-      },
-      data: {
-        isActive: body.isActive,
-      },
-    });
+    if (body.name !== undefined) {
+      updateData.name = body.name;
+    }
 
-    return NextResponse.json({
-      success: true,
-      sport,
-    });
+    const [sport] = await db
+      .update(sports)
+      .set(updateData)
+      .where(eq(sports.id, id))
+      .returning();
+
+    if (!sport) {
+      return NextResponse.json({ error: "Sport not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ sport });
   } catch (error) {
     console.error("Update sport error:", error);
-
     return NextResponse.json(
       { error: "Failed to update sport" },
       { status: 500 },
