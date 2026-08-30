@@ -26,7 +26,7 @@ export default function StepPeriod({
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   const availablePeriods = isToday
-    ? periods.filter((p) => p.start > currentMinutes)
+    ? periods.filter((p) => p.end > currentMinutes)
     : periods;
 
   return (

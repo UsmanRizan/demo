@@ -221,7 +221,7 @@ export default function StepCourts({
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {facility.slots.map((slot) => {
+                      {facility.slots.filter((slot) => slot.available).map((slot) => {
                         const selected =
                           selectedFacilityId === facility.id &&
                           selectedSlots.includes(slot.startTime);
@@ -230,40 +230,37 @@ export default function StepCourts({
                           <button
                             key={`${facility.id}-${slot.startTime}`}
                             type="button"
-                            disabled={!slot.available}
                             onClick={() => onToggleSlot(facility, slot)}
                             className={`border-[2px] px-3 py-3 text-sm font-bold uppercase transition ${
-                              !slot.available
-                                ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                                : selected
-                                  ? "border-white bg-white text-black"
-                                  : slot.surgePercentage && slot.surgePercentage > 0
-                                    ? "border-orange-400 bg-orange-50 text-black hover:bg-orange-100"
-                                    : "border-black bg-white text-black hover:bg-black hover:text-white"
+                              selected
+                                ? "border-white bg-white text-black"
+                                : slot.surgePercentage && slot.surgePercentage > 0
+                                  ? "border-orange-400 bg-orange-50 text-black hover:bg-orange-100"
+                                  : "border-black bg-white text-black hover:bg-black hover:text-white"
                             }`}
                           >
                             <div>{slot.startTime}</div>
                             <div className="text-xs opacity-70">
                               {slot.endTime}
                             </div>
-                            {slot.available && slot.pricePerHour !== undefined && (
+                            {slot.pricePerHour !== undefined && (
                               <div className="mt-1 text-xs font-bold">
                                 Rs. {slot.pricePerHour.toLocaleString()}
                               </div>
                             )}
-                            {slot.available && slot.surgePercentage !== undefined && slot.surgePercentage > 0 && (
+                            {slot.surgePercentage !== undefined && slot.surgePercentage > 0 && (
                               <div className="mt-0.5 text-[10px] font-bold text-orange-600">
                                 +{slot.surgePercentage}%
-                              </div>
-                            )}
-                            {!slot.available && (
-                              <div className="mt-1 text-[10px]">
-                                {isBlocked ? "Blocked" : "Booked"}
                               </div>
                             )}
                           </button>
                         );
                       })}
+                      {facility.slots.filter((slot) => slot.available).length === 0 && (
+                        <p className="col-span-full text-sm text-gray-500 uppercase">
+                          No available slots for this period.
+                        </p>
+                      )}
                     </div>
                   </div>
 
