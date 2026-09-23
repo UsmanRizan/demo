@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOwner } from "@/lib/owner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -74,7 +75,7 @@ export default async function OwnerDashboard() {
           <h2 className="text-lg font-bold uppercase">Your Locations</h2>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <a
+            <Link
               href="/owner/locations/new"
               className="inline-flex items-center justify-center border-[3px] border-black bg-black px-5 py-2.5 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black"
             >
@@ -82,7 +83,7 @@ export default async function OwnerDashboard() {
                 <path strokeLinecap="square" strokeLinejoin="miter" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Add Location
-            </a>
+            </Link>
             <a
               href="/owner/bookings"
               className="inline-flex items-center justify-center border-[2px] border-black bg-white px-5 py-2.5 text-sm font-bold uppercase text-black transition-all hover:bg-black hover:text-white"
@@ -158,12 +159,12 @@ export default async function OwnerDashboard() {
               <p className="mt-2 text-sm text-gray-500">
                 Create your first location to start adding sports facilities.
               </p>
-              <a
+              <Link
                 href="/owner/locations/new"
                 className="mt-5 inline-flex items-center border-[3px] border-black bg-black px-5 py-2.5 text-sm font-bold uppercase text-white transition-colors hover:bg-white hover:text-black"
               >
                 Create Location
-              </a>
+              </Link>
             </div>
           )}
         </div>

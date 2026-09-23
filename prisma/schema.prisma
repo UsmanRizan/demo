@@ -7,8 +7,8 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  phone        String   @unique
+  id           String  @id @default(cuid())
+  phone        String  @unique
   passwordHash String?
 
   firstName String?
@@ -16,6 +16,11 @@ model User {
   email     String?
 
   role UserRole @default(PLAYER)
+
+  // Bumped to invalidate every outstanding session JWT for this user.
+  sessionVersion Int       @default(0)
+  // Set when the account is deleted; personal fields are anonymised at the same time.
+  deletedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -26,6 +31,10 @@ model User {
   wallet             Wallet?
   withdrawalRequests WithdrawalRequest[]
   staffLocations     LocationStaff[]
+  reviews            Review[]
+  favorites          Favorite[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
 }
 
 model Sport {
@@ -53,12 +62,15 @@ model Location {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner          User           @relation(fields: [ownerId], references: [id])
+  owner          User            @relation(fields: [ownerId], references: [id])
   facilities     Facility[]
   availabilities Availability[]
   blockedDates   BlockedDate[]
   pricingRules   PricingRule[]
   staff          LocationStaff[]
+  images         LocationImage[]
+  reviews        Review[]
+  favorites      Favorite[]
 
   @@index([ownerId])
   @@index([city])
@@ -69,14 +81,17 @@ model Facility {
   locationId  String
   name        String
   description String?
+  imageUrl    String?
   price       Decimal  @db.Decimal(10, 2)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  location Location  @relation(fields: [locationId], references: [id])
+  location Location        @relation(fields: [locationId], references: [id])
   sports   Sport[]
   bookings Booking[]
+  images   FacilityImage[]
+  reviews  Review[]
 
   @@index([locationId])
 }
@@ -89,8 +104,8 @@ model Availability {
   endTime          String
   isActive         Boolean  @default(true)
   isTwentyFourHour Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
@@ -143,15 +158,30 @@ model Booking {
   paymentId     String?
   paymentMethod String?
   orderId       String?       @unique
+  // Shared PayHere order id when several bookings (a recurring series) are paid together.
+  groupOrderId  String?
   expiresAt     DateTime?
+
+  // Owner's share of totalPrice (price after pricing rules, before platform fee).
+  ownerAmount Decimal? @db.Decimal(10, 2)
+
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+
+  reminderSentAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   player   User     @relation(fields: [playerId], references: [id])
   facility Facility @relation(fields: [facilityId], references: [id])
+  review   Review?
 
+  // Overlap protection lives in the migration as an exclusion constraint
+  // ("Booking_no_overlap"), which Prisma cannot express in the schema.
   @@index([playerId])
+  @@index([groupOrderId])
   @@index([facilityId])
   @@index([startAt, endAt])
   @@index([status])
@@ -172,6 +202,7 @@ enum PaymentStatus {
   FAILED
   CANCELLED
   CHARGEBACK
+  REFUNDED
 }
 
 enum BookingStatus {
@@ -216,21 +247,27 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
 }
 
 model WithdrawalRequest {
-  id              String             @id @default(cuid())
-  ownerId         String
-  amount          Decimal            @db.Decimal(10, 2)
-  bankName        String
-  accountNumber   String
+  id                String           @id @default(cuid())
+  ownerId           String
+  amount            Decimal          @db.Decimal(10, 2)
+  bankName          String
+  // AES-256-GCM ciphertext (see src/lib/crypto.ts); legacy rows may still be plaintext.
+  accountNumber     String
+  accountLast4      String?
   accountHolderName String
-  status          WithdrawalStatus   @default(PENDING)
-  adminNote       String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  status            WithdrawalStatus @default(PENDING)
+  adminNote         String?
+  // True when the amount was held (debited) from the wallet at request time.
+  walletDebited     Boolean          @default(false)
+  processedById     String?
+  processedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   owner User @relation(fields: [ownerId], references: [id])
 
@@ -259,18 +296,154 @@ enum WithdrawalStatus {
 }
 
 model WalletTransaction {
-  id        String  @id @default(cuid())
-  walletId  String
-  amount    Decimal @db.Decimal(10, 2)
-  type      WalletTransactionType
-  bookingId String?
-  note      String?
+  id                  String                    @id @default(cuid())
+  walletId            String
+  amount              Decimal                   @db.Decimal(10, 2)
+  type                WalletTransactionType
+  category            WalletTransactionCategory @default(ADJUSTMENT)
+  // Wallet balance immediately after this transaction was applied.
+  balanceAfter        Decimal?                  @db.Decimal(10, 2)
+  bookingId           String?
+  withdrawalRequestId String?
+  note                String?
 
   createdAt DateTime @default(now())
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([walletId])
+  @@index([bookingId])
+  @@index([withdrawalRequestId])
+}
+
+enum WalletTransactionCategory {
+  BOOKING_PAYMENT
+  BOOKING_REFUND
+  BOOKING_EARNING
+  EARNING_REVERSAL
+  WITHDRAWAL
+  WITHDRAWAL_REVERSAL
+  ADJUSTMENT
+}
+
+model FacilityImage {
+  id         String   @id @default(cuid())
+  facilityId String
+  url        String
+  publicId   String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+}
+
+model LocationImage {
+  id         String   @id @default(cuid())
+  locationId String
+  url        String
+  publicId   String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  playerId   String
+  locationId String
+  facilityId String
+  rating     Int
+  comment    String?
+  ownerReply String?
+  isHidden   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  player   User     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([locationId])
+  @@index([facilityId])
+  @@index([playerId])
+}
+
+model Favorite {
+  userId     String
+  locationId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, locationId])
+  @@index([locationId])
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String?
+  channel   NotificationChannel
+  type      String
+  recipient String
+  subject   String?
+  body      String
+  status    NotificationStatus  @default(PENDING)
+  error     String?
+  bookingId String?
+  createdAt DateTime            @default(now())
+  sentAt    DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([bookingId, type])
+  @@index([createdAt])
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// Fixed-window rate limit counters, keyed by e.g. "send-otp:phone:94771234567".
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
 }
 
 enum WalletTransactionType {

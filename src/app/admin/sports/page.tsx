@@ -17,8 +17,6 @@ export default function AdminSportsPage() {
   const [message, setMessage] = useState("");
 
   async function loadSports() {
-    setLoading(true);
-
     try {
       const response = await fetch("/api/admin/sports");
       const data = await response.json();
@@ -108,6 +106,8 @@ export default function AdminSportsPage() {
   }
 
   useEffect(() => {
+    // Initial data fetch; state is only set after the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSports();
   }, []);
 

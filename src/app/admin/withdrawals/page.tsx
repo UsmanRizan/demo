@@ -52,10 +52,26 @@ export default function AdminWithdrawalsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+
+  // Full account numbers are fetched on demand; each reveal is audit-logged.
+  async function revealAccount(id: string) {
+    try {
+      const response = await fetch(`/api/admin/withdrawals/${id}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Couldn't reveal account number");
+        return;
+      }
+
+      setRevealed((current) => ({ ...current, [id]: data.accountNumber }));
+    } catch {
+      setMessage("Couldn't reveal account number");
+    }
+  }
 
   async function loadRequests(status?: string) {
-    setLoading(true);
-    setMessage("");
 
     try {
       const url = status && status !== "all"
@@ -102,7 +118,7 @@ export default function AdminWithdrawalsPage() {
           r.id === id ? { ...r, status: "APPROVED" as const } : r,
         ),
       );
-      setSuccessMessage("Withdrawal approved and wallet debited.");
+      setSuccessMessage("Withdrawal approved.");
     } catch {
       setMessage("Failed to approve withdrawal");
     } finally {
@@ -147,6 +163,8 @@ export default function AdminWithdrawalsPage() {
   }
 
   useEffect(() => {
+    // Initial data fetch; state is only set after the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRequests(activeStatus);
   }, [activeStatus]);
 
@@ -230,7 +248,12 @@ export default function AdminWithdrawalsPage() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveStatus(tab.id)}
+              onClick={() => {
+                if (tab.id === activeStatus) return;
+                setLoading(true);
+                setMessage("");
+                setActiveStatus(tab.id);
+              }}
               className={`px-4 py-2 text-sm font-medium transition ${
                 activeStatus === tab.id
                   ? "border-b-2 border-black text-black"
@@ -327,8 +350,17 @@ export default function AdminWithdrawalsPage() {
                         <div>
                           <p className="text-sm text-slate-900">{req.bankName}</p>
                           <p className="text-xs text-slate-500">
-                            {req.accountNumber} · {req.accountHolderName}
+                            {revealed[req.id] ?? req.accountNumber} · {req.accountHolderName}
                           </p>
+                          {!revealed[req.id] && req.status === "PENDING" && (
+                            <button
+                              type="button"
+                              onClick={() => revealAccount(req.id)}
+                              className="mt-0.5 text-xs font-medium text-indigo-600 hover:underline"
+                            >
+                              Show full number
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-4 sm:px-6">

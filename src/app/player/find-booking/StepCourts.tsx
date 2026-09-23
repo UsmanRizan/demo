@@ -4,12 +4,21 @@ import type { Coordinates, Facility, Period, Slot } from "./types";
 import { periods } from "./types";
 import { calculateDistance, formatDistance } from "./utils";
 import { getSportIcon } from "@/lib/sport-icons";
+import Image from "next/image";
+import Link from "next/link";
 
 type StepCourtsProps = {
   selectedSportName: string;
   selectedPeriod: Period;
   selectedDate: string;
+  selectedSportId: string;
   facilities: Facility[];
+  totalFacilities: number;
+  cities: string[];
+  cityFilter: string;
+  onCityChange: (city: string) => void;
+  locationDenied: boolean;
+  onRetryLocation: () => void;
   coordinates: Coordinates | null;
   locationLoading: boolean;
   searchLoading: boolean;
@@ -26,7 +35,14 @@ export default function StepCourts({
   selectedSportName,
   selectedPeriod,
   selectedDate,
+  selectedSportId,
   facilities,
+  totalFacilities,
+  cities,
+  cityFilter,
+  onCityChange,
+  locationDenied,
+  onRetryLocation,
   coordinates,
   locationLoading,
   searchLoading,
@@ -41,29 +57,53 @@ export default function StepCourts({
   return (
     <section className="mt-8">
       <div>
-        <h2 className="text-3xl font-bold uppercase">Courts near you</h2>
+        <h2 className="text-3xl font-bold uppercase">
+          {coordinates ? "Courts near you" : "Available courts"}
+        </h2>
 
         <p className="mt-2 text-gray-500 uppercase text-sm font-bold">
           {getSportIcon(selectedSportName)} {selectedSportName} · {periods.find((p) => p.id === selectedPeriod)?.title ?? selectedPeriod} · {selectedDate}
         </p>
       </div>
 
-      {locationLoading && (
-        <div className="mt-8 border-[2px] border-black bg-white p-8 text-center">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center">
-            <svg className="spinner h-6 w-6 text-black" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-          </div>
-          <p className="mt-3 font-bold uppercase">Finding your location...</p>
-          <p className="mt-1 text-sm text-gray-500">
-            We&apos;ll sort courts from nearest to furthest.
+      {!searchLoading && locationDenied && (
+        <div className="mt-6 flex flex-col gap-3 border-[2px] border-black bg-gray-50 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <span className="font-bold uppercase">Location is off.</span> Showing all courts —
+            filter by city, or share your location to sort by distance.
           </p>
+          <button
+            type="button"
+            onClick={onRetryLocation}
+            className="shrink-0 border-[2px] border-black bg-white px-3 py-1.5 text-xs font-bold uppercase hover:bg-black hover:text-white"
+          >
+            Use my location
+          </button>
         </div>
       )}
 
-      {!locationLoading && searchLoading && (
+      {!searchLoading && totalFacilities > 0 && cities.length > 1 && (
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label htmlFor="city-filter" className="text-xs font-bold uppercase text-gray-500">
+            City
+          </label>
+          <select
+            id="city-filter"
+            value={cityFilter}
+            onChange={(e) => onCityChange(e.target.value)}
+            className="border-[2px] border-black bg-white px-3 py-2 text-sm font-bold uppercase"
+          >
+            <option value="">All cities ({totalFacilities})</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {searchLoading && (
         <div className="mt-8 border-[2px] border-black bg-white p-8 text-center">
           <div className="mx-auto flex h-10 w-10 items-center justify-center">
             <svg className="spinner h-6 w-6 text-black" viewBox="0 0 24 24" fill="none">
@@ -72,19 +112,26 @@ export default function StepCourts({
             </svg>
           </div>
           <p className="mt-3 font-bold uppercase">Searching available courts...</p>
+          {locationLoading && (
+            <p className="mt-1 text-sm text-gray-500">
+              Allow location access to sort courts from nearest to furthest.
+            </p>
+          )}
         </div>
       )}
 
-      {!locationLoading && !searchLoading && facilities.length === 0 && (
+      {!searchLoading && facilities.length === 0 && (
         <div className="mt-8 border-[2px] border-black bg-white p-8 text-center">
           <h3 className="text-xl font-bold uppercase">No courts available</h3>
           <p className="mt-2 text-gray-500">
-            Try another time period or date.
+            {cityFilter
+              ? `No courts in ${cityFilter} for this time. Try another city, period or date.`
+              : "Try another time period or date."}
           </p>
         </div>
       )}
 
-      {!locationLoading && !searchLoading && facilities.length > 0 && (
+      {!searchLoading && facilities.length > 0 && (
         <div className="mt-8 space-y-5">
           {facilities.map((facility) => {
             const distance =
@@ -122,6 +169,12 @@ export default function StepCourts({
 
             const isBlocked = facility.blockedReason !== null;
 
+            const venueHref = `/locations/${facility.location.id}?${new URLSearchParams({
+              sport: selectedSportId,
+              date: selectedDate,
+              court: facility.id,
+            }).toString()}#book`;
+
             return (
               <article
                 key={facility.id}
@@ -135,17 +188,33 @@ export default function StepCourts({
               >
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
+                    {facility.imageUrl && (
+                      <Link href={venueHref} className="shrink-0" aria-label={`View ${facility.location.name}`}>
+                      <Image
+                        src={facility.imageUrl}
+                        alt={facility.name}
+                        width={176}
+                        height={128}
+                        className="h-28 w-full rounded-none border-[2px] border-black object-cover sm:h-32 sm:w-44"
+                      />
+                      </Link>
+                    )}
+
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold uppercase text-gray-500">
                         {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
                       </p>
 
                       <h3 className="mt-1 text-xl font-bold uppercase">
-                        {facility.name}
+                        <Link href={venueHref} className="hover:underline">
+                          {facility.name}
+                        </Link>
                       </h3>
 
                       <p className="mt-2 text-sm text-gray-600">
-                        {facility.location.name}
+                        <Link href={venueHref} className="font-bold hover:underline">
+                          {facility.location.name}
+                        </Link>
                       </p>
 
                       <p className="mt-1 text-sm text-gray-400">
@@ -153,10 +222,19 @@ export default function StepCourts({
                         {facility.location.city}
                       </p>
 
-                      <div className="mt-3 flex items-center gap-3">
-                        <p className="text-sm font-bold uppercase text-gray-600">
-                          {formatDistance(distance)}
-                        </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {Number.isFinite(distance) && (
+                          <p className="text-sm font-bold uppercase text-gray-600">
+                            {formatDistance(distance)}
+                          </p>
+                        )}
+
+                        <Link
+                          href={venueHref}
+                          className="inline-flex items-center border-[2px] border-black bg-black px-3 py-1 text-xs font-bold uppercase text-white transition hover:bg-white hover:text-black"
+                        >
+                          View venue &amp; all times →
+                        </Link>
 
                         <a
                           href={mapsUrl}
@@ -182,14 +260,14 @@ export default function StepCourts({
                       </div>
                     </div>
 
-                    <div className="sm:text-right">
+                    <div className="sm:shrink-0 sm:text-right">
                       <p className="text-xl font-bold uppercase">
                         Rs. {facility.price.toLocaleString()}
                       </p>
                       <p className="mt-1 text-xs text-gray-400 uppercase font-bold">
                         per hour
                       </p>
-                      {facility.avgSurge && facility.avgSurge > 0 && (
+                      {!!facility.avgSurge && facility.avgSurge > 0 && (
                         <p className="mt-1 inline-block border-[2px] border-orange-500 bg-orange-50 px-2 py-0.5 text-xs font-bold uppercase text-orange-600">
                           🔥 +{facility.avgSurge}% surge
                         </p>

@@ -1,8 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { getSportIcon } from "@/lib/sport-icons";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 type Sport = {
   id: string;
@@ -20,6 +23,9 @@ export default function NewFacilityPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loadingSports, setLoadingSports] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -47,6 +53,48 @@ export default function NewFacilityPage() {
     loadSports();
   }, []);
 
+  async function uploadImage(file: File) {
+    setUploading(true);
+    setError("");
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Image must be smaller than 5 MB");
+      setUploading(false);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to upload image");
+        return;
+      }
+
+      setImageUrl(data.imageUrl);
+    } catch {
+      setError("Failed to upload image");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeImage() {
+    setImageUrl(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
   async function createFacility(event: FormEvent) {
     event.preventDefault();
 
@@ -65,6 +113,7 @@ export default function NewFacilityPage() {
           name,
           description,
           price,
+          imageUrl,
         }),
       });
 
@@ -102,6 +151,54 @@ export default function NewFacilityPage() {
           </p>
 
           <form onSubmit={createFacility} className="mt-8 space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Facility image</label>
+
+              {imageUrl ? (
+                <div className="flex items-start gap-4">
+                  <Image
+                    src={imageUrl}
+                    alt="Facility preview"
+                    width={160}
+                    height={120}
+                    className="h-28 w-40 rounded-lg border border-gray-200 object-cover"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:border-red-400 hover:text-red-600"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center transition hover:border-black">
+                  <span className="text-2xl">🖼️</span>
+                  <span className="text-sm font-medium">
+                    {uploading ? "Uploading..." : "Click to upload an image"}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    JPEG, PNG, or WebP up to 5 MB
+                  </span>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploading}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        uploadImage(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
             <div>
               <label className="mb-2 block text-sm font-medium">
                 Sports (select one or more)
@@ -179,7 +276,7 @@ export default function NewFacilityPage() {
               />
 
               <p className="mt-1 text-xs text-gray-500">
-                We'll make the pricing/slot duration more flexible later.
+                We&apos;ll make the pricing/slot duration more flexible later.
               </p>
             </div>
 
@@ -205,7 +302,7 @@ export default function NewFacilityPage() {
 
             <button
               type="submit"
-              disabled={loading || loadingSports || sports.length === 0 || selectedSportIds.length === 0}
+              disabled={loading || uploading || loadingSports || sports.length === 0 || selectedSportIds.length === 0}
               className="w-full rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create Facility"}

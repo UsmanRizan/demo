@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { audit } from "@/lib/audit";
+import { handleClosureBookings } from "@/lib/closures";
+import { facilityUpdateSchema, parseJson } from "@/lib/validation";
+import { logError } from "@/lib/monitoring";
 
 type RouteContext = {
   params: Promise<{
@@ -23,7 +27,13 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    const body = await request.json();
+    const parsed = await parseJson(request, facilityUpdateSchema);
+
+    if (parsed.response) {
+      return parsed.response;
+    }
+
+    const body = parsed.data;
 
     const facility = await prisma.facility.findFirst({
       where: {
@@ -39,39 +49,18 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Facility not found" }, { status: 404 });
     }
 
-    const data: { price?: number; sports?: { set: { id: string }[] } } = {};
+    const data: {
+      price?: number;
+      isActive?: boolean;
+      sports?: { set: { id: string }[] };
+    } = {};
 
     if (body.price !== undefined) {
-      const price = Number(body.price);
-
-      if (!Number.isFinite(price) || price <= 0) {
-        return NextResponse.json(
-          { error: "Price must be greater than zero" },
-          { status: 400 },
-        );
-      }
-
-      data.price = price;
+      data.price = body.price;
     }
 
     if (body.sportIds !== undefined) {
-      if (!Array.isArray(body.sportIds)) {
-        return NextResponse.json(
-          { error: "sportIds must be an array" },
-          { status: 400 },
-        );
-      }
-
-      const sportIds: string[] = body.sportIds.filter(
-        (id: unknown) => typeof id === "string",
-      );
-
-      if (sportIds.length === 0) {
-        return NextResponse.json(
-          { error: "At least one sport is required" },
-          { status: 400 },
-        );
-      }
+      const sportIds = [...new Set(body.sportIds)];
 
       // Verify all sports exist and are active
       const sports = await prisma.sport.findMany({
@@ -85,7 +74,40 @@ export async function PATCH(request: Request, context: RouteContext) {
         );
       }
 
-      data.sports = { set: sportIds.map((id) => ({ id })) };
+      data.sports = { set: sportIds.map((sportId) => ({ id: sportId })) };
+    }
+
+    let cancelledBookings = 0;
+
+    if (body.isActive !== undefined) {
+      if (body.isActive === false && facility.isActive) {
+        const closure = await handleClosureBookings({
+          scope: { facilityId: facility.id },
+          from: new Date(),
+          ownerId: currentUser.id,
+          reason: body.reason
+            ? `Court closed: ${body.reason}`
+            : "Court is no longer available",
+          confirmed: body.cancelExistingBookings === true,
+        });
+
+        if (closure.response) {
+          return closure.response;
+        }
+
+        cancelledBookings = closure.cancelled;
+      }
+
+      data.isActive = body.isActive;
+
+      await audit({
+        actorId: currentUser.id,
+        action: body.isActive ? "facility.activate" : "facility.deactivate",
+        entityType: "Facility",
+        entityId: facility.id,
+        metadata: { cancelledBookings },
+        request,
+      });
     }
 
     const updated = await prisma.facility.update({
@@ -103,11 +125,13 @@ export async function PATCH(request: Request, context: RouteContext) {
         id: updated.id,
         name: updated.name,
         price: updated.price.toString(),
+        isActive: updated.isActive,
         sports: updated.sports,
       },
+      cancelledBookings,
     });
   } catch (error) {
-    console.error("Update facility error:", error);
+    logError("Update facility error:", error);
 
     return NextResponse.json(
       { error: "Failed to update facility" },

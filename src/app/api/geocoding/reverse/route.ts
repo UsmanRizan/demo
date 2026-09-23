@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logError } from "@/lib/monitoring";
 
 export async function GET(request: Request) {
   try {
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
       city,
     });
   } catch (error) {
-    console.error("Reverse geocoding error:", error);
+    logError("Reverse geocoding error:", error);
 
     return NextResponse.json(
       {

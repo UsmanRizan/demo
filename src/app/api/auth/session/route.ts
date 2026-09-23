@@ -16,7 +16,7 @@ export async function GET() {
         id: user.id,
         phone: user.phone,
         role: user.role,
-        hasPassword: !!user.passwordHash,
+        hasPassword: user.hasPassword,
       },
     });
   } catch {

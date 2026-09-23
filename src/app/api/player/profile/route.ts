@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isValidEmail, normalizePhone } from "@/lib/utils";
+import { normalizePhone } from "@/lib/utils";
+import { parseJson, profileSchema } from "@/lib/validation";
+import { logError } from "@/lib/monitoring";
 
 export async function GET() {
   try {
@@ -85,7 +87,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/player/profile error:", error);
+    logError("GET /api/player/profile error:", error);
 
     return NextResponse.json(
       {
@@ -113,60 +115,14 @@ export async function PUT(request: Request) {
       );
     }
 
-    const body = await request.json();
+    const parsed = await parseJson(request, profileSchema);
 
-    const firstName =
-      typeof body.firstName === "string" ? body.firstName.trim() : "";
-
-    const lastName =
-      typeof body.lastName === "string" ? body.lastName.trim() : "";
-
-    const email =
-      typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-
-    const addressLine1 =
-      typeof body.addressLine1 === "string" ? body.addressLine1.trim() : "";
-
-    const addressLine2 =
-      typeof body.addressLine2 === "string" ? body.addressLine2.trim() : "";
-
-    const city = typeof body.city === "string" ? body.city.trim() : "";
-
-    const country =
-      typeof body.country === "string" ? body.country.trim() : "Sri Lanka";
-
-    /*
-     * Validate required fields.
-     */
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !addressLine1 ||
-      !city ||
-      !country
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "First name, last name, email, address, city and country are required.",
-        },
-        {
-          status: 400,
-        },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    if (!isValidEmail(email)) {
-      return NextResponse.json(
-        {
-          error: "Please enter a valid email address.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+    const { firstName, lastName, email, addressLine1, addressLine2, city, country } =
+      parsed.data;
 
     /*
      * Keep phone unchanged because it comes
@@ -289,7 +245,7 @@ export async function PUT(request: Request) {
       },
     });
   } catch (error) {
-    console.error("PUT /api/player/profile error:", error);
+    logError("PUT /api/player/profile error:", error);
 
     return NextResponse.json(
       {

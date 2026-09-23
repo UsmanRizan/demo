@@ -1,47 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
-type ContactPayload = {
-  name?: string;
-  email?: string;
-  phone?: string;
-  reason?: string;
-  message?: string;
-};
+import { logError } from "@/lib/monitoring";
+import { notifyAddress } from "@/lib/notifications";
+import { enforceRateLimits } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/request";
+import { contactSchema, parseJson } from "@/lib/validation";
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as ContactPayload;
-    const name = (body.name || "").trim();
-    const email = (body.email || "").trim();
-    const phone = (body.phone || "").trim();
-    const reason = (body.reason || "").trim();
-    const message = (body.message || "").trim();
+    const limited = await enforceRateLimits(
+      [{ key: `contact:ip:${getClientIp(request)}`, limit: 5, windowSeconds: 3600 }],
+      "You've sent several messages recently. Please try again later.",
+    );
 
-    if (!name || name.length < 2) {
-      return NextResponse.json({ error: "Please provide your name." }, { status: 400 });
-    }
-    if (!email || !isValidEmail(email)) {
-      return NextResponse.json({ error: "Please provide a valid email." }, { status: 400 });
-    }
-    if (!message || message.length < 5) {
-      return NextResponse.json({ error: "Please add a short message." }, { status: 400 });
+    if (limited) {
+      return limited;
     }
 
-    console.log("[contact] new message", {
+    const parsed = await parseJson(request, contactSchema);
+
+    if (parsed.response) {
+      return parsed.response;
+    }
+
+    const { name, email, phone, reason, message } = parsed.data;
+
+    console.info("[contact] new message", {
       name,
       email,
-      phone,
       reason,
-      message,
       at: new Date().toISOString(),
     });
 
+    const supportEmail = process.env.SUPPORT_EMAIL;
+
+    if (supportEmail) {
+      after(() =>
+        notifyAddress(
+          { email: supportEmail },
+          {
+            type: "CONTACT_FORM",
+            email: {
+              subject: `[Contact] ${reason || "General"} - ${name}`,
+              text: `From: ${name} <${email}>\nPhone: ${phone || "-"}\nReason: ${reason || "-"}\n\n${message}`,
+            },
+          },
+        ),
+      );
+    }
+
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    logError("Contact form error:", error);
+
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 },

@@ -15,6 +15,25 @@ import StepTime from "./StepTime";
 import StepPeriod from "./StepPeriod";
 import StepCourts from "./StepCourts";
 
+/** Resolves to the player's position, or null if unavailable or denied. */
+function getPlayerLocation(): Promise<Coordinates | null> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 },
+    );
+  });
+}
+
 export default function FindBookingPage() {
   return (
     <Suspense fallback={null}>
@@ -53,6 +72,10 @@ function FindBookingContent() {
   const [searchLoading, setSearchLoading] = useState(false);
 
   const [error, setError] = useState("");
+
+  const [locationDenied, setLocationDenied] = useState(false);
+
+  const [cityFilter, setCityFilter] = useState("");
 
   useEffect(() => {
     async function loadSports() {
@@ -120,29 +143,14 @@ function FindBookingContent() {
 
     setLocationLoading(true);
     setSearchLoading(true);
+    setLocationDenied(false);
+    setCityFilter("");
+
+    // Location only sorts results by distance: courts are fetched and shown
+    // whether or not the player shares their location.
+    const locationPromise = getPlayerLocation();
 
     try {
-      if (!navigator.geolocation) {
-        throw new Error("Geolocation is not supported by this browser.");
-      }
-
-      const position = await new Promise<GeolocationPosition>(
-        (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 300000,
-          });
-        },
-      );
-
-      const playerLocation = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-
-      setCoordinates(playerLocation);
-
       const response = await fetch(
         `/api/player/search?sportId=${encodeURIComponent(
           selectedSport.id,
@@ -156,44 +164,63 @@ function FindBookingContent() {
         return;
       }
 
-      const sortedFacilities = (data.facilities as Facility[])
-        .map((facility) => {
-          if (
-            facility.location.latitude === null ||
-            facility.location.longitude === null
-          ) {
-            return {
-              facility,
-              distance: Number.POSITIVE_INFINITY,
-            };
-          }
+      const playerLocation = await locationPromise;
+      setCoordinates(playerLocation);
+      setLocationDenied(playerLocation === null);
 
-          const distance = calculateDistance(
-            playerLocation.latitude,
-            playerLocation.longitude,
-            facility.location.latitude,
-            facility.location.longitude,
-          );
+      const distanceOf = (facility: Facility) =>
+        playerLocation &&
+        facility.location.latitude !== null &&
+        facility.location.longitude !== null
+          ? calculateDistance(
+              playerLocation.latitude,
+              playerLocation.longitude,
+              facility.location.latitude,
+              facility.location.longitude,
+            )
+          : Number.POSITIVE_INFINITY;
 
-          return {
-            facility,
-            distance,
-          };
-        })
-        .sort((a, b) => a.distance - b.distance)
-        .map((item) => item.facility);
+      const sortedFacilities = [...(data.facilities as Facility[])].sort((a, b) =>
+        playerLocation
+          ? distanceOf(a) - distanceOf(b)
+          : a.location.city.localeCompare(b.location.city) ||
+            a.location.name.localeCompare(b.location.name),
+      );
 
       setFacilities(sortedFacilities);
     } catch (error) {
       console.error(error);
-
-      setError(
-        "We couldn't access your location. Please allow location access and try again.",
-      );
+      setError("Failed to find courts. Please try again.");
     } finally {
       setLocationLoading(false);
       setSearchLoading(false);
     }
+  }
+
+  async function retryLocation() {
+    const playerLocation = await getPlayerLocation();
+
+    if (!playerLocation) {
+      setLocationDenied(true);
+      return;
+    }
+
+    setLocationDenied(false);
+    setCoordinates(playerLocation);
+    setFacilities((current) =>
+      [...current].sort((a, b) => {
+        const distance = (facility: Facility) =>
+          facility.location.latitude !== null && facility.location.longitude !== null
+            ? calculateDistance(
+                playerLocation.latitude,
+                playerLocation.longitude,
+                facility.location.latitude,
+                facility.location.longitude,
+              )
+            : Number.POSITIVE_INFINITY;
+        return distance(a) - distance(b);
+      }),
+    );
   }
 
   function toggleSlot(facility: Facility, slot: Slot) {
@@ -254,6 +281,20 @@ function FindBookingContent() {
       setError("");
     }
   }
+
+  const cities = useMemo(
+    () =>
+      [...new Set(facilities.map((f) => f.location.city.trim()))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [facilities],
+  );
+
+  const visibleFacilities = cityFilter
+    ? facilities.filter(
+        (f) => f.location.city.trim().toLowerCase() === cityFilter.toLowerCase(),
+      )
+    : facilities;
 
   const selectedFacility = selectedFacilityId
     ? facilities.find((f) => f.id === selectedFacilityId) ?? null
@@ -383,7 +424,14 @@ function FindBookingContent() {
             selectedSportName={selectedSport.name}
             selectedPeriod={selectedPeriod}
             selectedDate={selectedDate}
-            facilities={facilities}
+            selectedSportId={selectedSport.id}
+            facilities={visibleFacilities}
+            totalFacilities={facilities.length}
+            cities={cities}
+            cityFilter={cityFilter}
+            onCityChange={setCityFilter}
+            locationDenied={locationDenied}
+            onRetryLocation={retryLocation}
             coordinates={coordinates}
             locationLoading={locationLoading}
             searchLoading={searchLoading}

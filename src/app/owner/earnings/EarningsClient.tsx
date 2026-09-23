@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { categoryLabel } from "@/lib/wallet-labels";
+
 type Facility = {
   id: string;
   name: string;
@@ -14,6 +16,7 @@ type Booking = {
   startAt: string;
   endAt: string;
   totalPrice: string;
+  ownerAmount: string;
   status: string;
   facility: Facility;
 };
@@ -22,6 +25,7 @@ type WalletTransaction = {
   id: string;
   amount: string;
   type: string;
+  category?: string;
   note: string | null;
   bookingId: string | null;
   createdAt: string;
@@ -85,11 +89,7 @@ function formatDate(date: Date) {
 }
 
 function getOwnerEarnings(booking: Booking): number {
-  const start = new Date(booking.startAt);
-  const end = new Date(booking.endAt);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-  const ownerPrice = Number(booking.facility.price);
-  return hours * ownerPrice;
+  return Number(booking.ownerAmount);
 }
 
 function filterByPeriod(bookings: Booking[], period: Period): Booking[] {
@@ -247,8 +247,14 @@ export default function EarningsClient({ bookings, wallet: initialWallet, withdr
         </div>
       </div>
 
-      {/* Withdraw Button */}
-      <div className="flex justify-end">
+      {/* Export + Withdraw */}
+      <div className="flex flex-wrap justify-end gap-3">
+          <a
+            href="/api/owner/earnings/export"
+            className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Export CSV
+          </a>
           <button
             type="button"
             onClick={() => {
@@ -560,7 +566,7 @@ export default function EarningsClient({ bookings, wallet: initialWallet, withdr
               <div key={tx.id} className="flex items-center justify-between py-3">
                 <div>
                   <p className="text-sm font-medium text-slate-900">
-                    {tx.type === "CREDIT" ? "Booking earning" : tx.note?.startsWith("Withdrawal") ? "Withdrawal" : "Debit"}
+                    {categoryLabel(tx.category)}
                   </p>
                   <p className="text-xs text-slate-500">
                     {formatDate(new Date(tx.createdAt))}

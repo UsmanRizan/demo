@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { audit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
+import { encryptSecret, lastFour } from "@/lib/crypto";
+import { debitWallet, InsufficientFundsError } from "@/lib/ledger";
+import { logError } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimits } from "@/lib/rate-limit";
+import { parseJson, withdrawalRequestSchema } from "@/lib/validation";
+
+class WithdrawalError extends Error {}
 
 export async function POST(request: Request) {
   try {
@@ -15,117 +23,90 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { amount, bankName, accountNumber, accountHolderName } = body;
+    const limited = await enforceRateLimits([
+      { key: `withdraw:user:${currentUser.id}`, limit: 10, windowSeconds: 3600 },
+    ]);
 
-    // Validate required fields
-    if (!amount || typeof amount !== "number" || amount <= 0) {
-      return NextResponse.json(
-        { error: "A valid withdrawal amount is required." },
-        { status: 400 },
-      );
+    if (limited) {
+      return limited;
     }
 
-    if (!bankName || typeof bankName !== "string" || !bankName.trim()) {
-      return NextResponse.json(
-        { error: "Bank name is required." },
-        { status: 400 },
-      );
+    const parsed = await parseJson(request, withdrawalRequestSchema);
+
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    if (
-      !accountNumber ||
-      typeof accountNumber !== "string" ||
-      !accountNumber.trim()
-    ) {
-      return NextResponse.json(
-        { error: "Account number is required." },
-        { status: 400 },
-      );
-    }
+    const { amount, bankName, accountNumber, accountHolderName } = parsed.data;
 
-    if (
-      !accountHolderName ||
-      typeof accountHolderName !== "string" ||
-      !accountHolderName.trim()
-    ) {
-      return NextResponse.json(
-        { error: "Account holder name is required." },
-        { status: 400 },
-      );
-    }
+    // The amount is held (debited) immediately so the owner cannot spend or
+    // request it twice while the admin reviews it. Rejection returns it.
+    const withdrawalRequest = await prisma.$transaction(async (tx) => {
+      // Serialise concurrent requests from the same owner.
+      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE "userId" = ${currentUser.id} FOR UPDATE`;
 
-    // Minimum withdrawal amount
-    if (amount < 100) {
-      return NextResponse.json(
-        { error: "Minimum withdrawal amount is Rs. 100.00." },
-        { status: 400 },
-      );
-    }
+      const pending = await tx.withdrawalRequest.findFirst({
+        where: { ownerId: currentUser.id, status: "PENDING" },
+        select: { id: true },
+      });
 
-    // Get wallet
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId: currentUser.id },
-    });
+      if (pending) {
+        throw new WithdrawalError(
+          "You already have a pending withdrawal request. Please wait for it to be processed.",
+        );
+      }
 
-    if (!wallet) {
-      return NextResponse.json(
-        { error: "No wallet found. You have no balance to withdraw." },
-        { status: 400 },
-      );
-    }
-
-    const walletBalance = Number(wallet.balance);
-
-    // Check if wallet has enough balance
-    if (walletBalance < amount) {
-      return NextResponse.json(
-        {
-          error: `Insufficient balance. Available: Rs. ${walletBalance.toFixed(2)}`,
+      const created = await tx.withdrawalRequest.create({
+        data: {
+          ownerId: currentUser.id,
+          amount,
+          bankName,
+          accountNumber: encryptSecret(accountNumber),
+          accountLast4: lastFour(accountNumber),
+          accountHolderName,
+          walletDebited: true,
         },
-        { status: 400 },
-      );
-    }
+      });
 
-    // Check for any pending withdrawal requests
-    const pendingRequest = await prisma.withdrawalRequest.findFirst({
-      where: {
-        ownerId: currentUser.id,
-        status: "PENDING",
-      },
-    });
-
-    if (pendingRequest) {
-      return NextResponse.json(
-        {
-          error: "You already have a pending withdrawal request. Please wait for it to be processed.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const trimmedBankName = bankName.trim();
-    const trimmedAccountNumber = accountNumber.trim();
-    const trimmedAccountHolderName = accountHolderName.trim();
-
-    // Create withdrawal request (pending admin approval)
-    const withdrawalRequest = await prisma.withdrawalRequest.create({
-      data: {
-        ownerId: currentUser.id,
+      const debit = await debitWallet(tx, {
+        userId: currentUser.id,
         amount,
-        bankName: trimmedBankName,
-        accountNumber: trimmedAccountNumber,
-        accountHolderName: trimmedAccountHolderName,
-      },
+        category: "WITHDRAWAL",
+        withdrawalRequestId: created.id,
+        note: `Withdrawal to ${bankName} (•••• ${lastFour(accountNumber)}) - pending approval`,
+      });
+
+      return { ...created, newBalance: Number(debit.balanceAfter ?? 0) };
+    });
+
+    await audit({
+      actorId: currentUser.id,
+      action: "withdrawal.request",
+      entityType: "WithdrawalRequest",
+      entityId: withdrawalRequest.id,
+      metadata: { amount },
+      request,
     });
 
     return NextResponse.json({
       success: true,
-      message: `Withdrawal request for Rs. ${amount.toFixed(2)} submitted. It will be processed after admin approval.`,
+      message: `Withdrawal request for Rs. ${amount.toFixed(2)} submitted. The amount is on hold until an admin processes it.`,
       requestId: withdrawalRequest.id,
+      newBalance: withdrawalRequest.newBalance.toFixed(2),
     });
   } catch (error) {
-    console.error("Withdrawal error:", error);
+    if (error instanceof WithdrawalError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (error instanceof InsufficientFundsError) {
+      return NextResponse.json(
+        { error: `Insufficient balance. Available: Rs. ${error.available.toFixed(2)}` },
+        { status: 400 },
+      );
+    }
+
+    logError("Withdrawal error:", error);
 
     return NextResponse.json(
       { error: "Failed to process withdrawal." },

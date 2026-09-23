@@ -1,57 +1,58 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
+import { setSessionCookie } from "@/lib/auth";
+import { logError } from "@/lib/monitoring";
 import { comparePassword } from "@/lib/password";
-import { createSession } from "@/lib/session";
-import { normalizePhone } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
+import { clearRateLimit, enforceRateLimits } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/request";
+import { loginSchema, parseJson } from "@/lib/validation";
+
+const INVALID = "Invalid phone or password";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const ipLimited = await enforceRateLimits(
+      [{ key: `login:ip:${getClientIp(request)}`, limit: 30, windowSeconds: 900 }],
+      "Too many login attempts. Please try again later.",
+    );
 
-    if (!body.phone || typeof body.phone !== "string") {
-      return NextResponse.json(
-        { error: "Phone number is required" },
-        { status: 400 },
-      );
+    if (ipLimited) {
+      return ipLimited;
     }
 
-    if (!body.password || typeof body.password !== "string") {
-      return NextResponse.json(
-        { error: "Password is required" },
-        { status: 400 },
-      );
+    const parsed = await parseJson(request, loginSchema);
+
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    const phone = normalizePhone(body.phone);
-    const password = body.password;
+    const { phone, password } = parsed.data;
+    const phoneKey = `login:phone:${phone}`;
 
-    const user = await prisma.user.findUnique({
-      where: { phone },
-    });
+    // Brute-force protection per account, independent of IP.
+    const phoneLimited = await enforceRateLimits(
+      [{ key: phoneKey, limit: 10, windowSeconds: 900 }],
+      "Too many login attempts for this number. Try again later or sign in with OTP.",
+    );
 
-    if (!user || !user.passwordHash) {
-      return NextResponse.json(
-        { error: "Invalid phone or password" },
-        { status: 401 },
-      );
+    if (phoneLimited) {
+      return phoneLimited;
+    }
+
+    const user = await prisma.user.findUnique({ where: { phone } });
+
+    if (!user || !user.passwordHash || user.deletedAt) {
+      return NextResponse.json({ error: INVALID }, { status: 401 });
     }
 
     const isValid = await comparePassword(password, user.passwordHash);
 
     if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid phone or password" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: INVALID }, { status: 401 });
     }
 
-    const sessionToken = await createSession({
-      userId: user.id,
-      phone: user.phone,
-      role: user.role,
-      hasPassword: true,
-    });
+    await clearRateLimit(phoneKey);
 
     const response = NextResponse.json({
       success: true,
@@ -63,21 +64,12 @@ export async function POST(request: Request) {
       },
     });
 
-    response.cookies.set("session", sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    await setSessionCookie(response, user);
 
     return response;
   } catch (error) {
-    console.error("Login error:", error);
+    logError("Login error:", error);
 
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }

@@ -49,6 +49,8 @@ export default function StaffManager({ locationId }: StaffManagerProps) {
   }, [locationId]);
 
   useEffect(() => {
+    // Initial data fetch; state is only set after the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchStaff();
   }, [fetchStaff]);
 
@@ -194,8 +196,8 @@ export default function StaffManager({ locationId }: StaffManagerProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 6 characters"
-              minLength={6}
+              placeholder="Min. 8 characters"
+              minLength={8}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               required
             />

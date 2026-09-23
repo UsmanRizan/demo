@@ -1,4 +1,6 @@
 import { requireOwner } from "@/lib/owner";
+import { maskAccountNumber } from "@/lib/crypto";
+import { ownerShareFromTotal } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -55,6 +57,7 @@ export default async function OwnerEarningsPage() {
     startAt: b.startAt.toISOString(),
     endAt: b.endAt.toISOString(),
     totalPrice: b.totalPrice.toString(),
+    ownerAmount: (b.ownerAmount ?? ownerShareFromTotal(Number(b.totalPrice))).toString(),
     status: b.status,
     facility: {
       id: b.facility.id,
@@ -71,6 +74,7 @@ export default async function OwnerEarningsPage() {
           id: t.id,
           amount: t.amount.toString(),
           type: t.type,
+          category: t.category,
           note: t.note,
           bookingId: t.bookingId,
           createdAt: t.createdAt.toISOString(),
@@ -82,7 +86,7 @@ export default async function OwnerEarningsPage() {
     id: w.id,
     amount: w.amount.toString(),
     bankName: w.bankName,
-    accountNumber: w.accountNumber,
+    accountNumber: maskAccountNumber(w.accountLast4),
     accountHolderName: w.accountHolderName,
     status: w.status,
     adminNote: w.adminNote,

@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSportIcon } from "@/lib/sport-icons";
+import ReviewForm from "./ReviewForm";
 
 type Facility = {
   id: string;
   name: string;
   price: string;
-  sports: { name: string }[];
-  location: { name: string; address: string; city: string; latitude: number | null; longitude: number | null };
+  sports: { id: string; name: string }[];
+  location: { id: string; name: string; address: string; city: string; latitude: number | null; longitude: number | null };
 };
 
 type Booking = {
@@ -21,8 +22,11 @@ type Booking = {
   paymentStatus: string;
   paymentMethod: string | null;
   orderId: string | null;
+  groupOrderId: string | null;
+  cancellationReason: string | null;
   createdAt: string;
   facility: Facility;
+  review: { rating: number; comment: string | null } | null;
 };
 
 type BookingsClientProps = {
@@ -63,7 +67,16 @@ const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
   FAILED: { label: "Payment failed", className: "bg-red-50 text-red-600 border-red-200" },
   CANCELLED: { label: "Payment cancelled", className: "bg-slate-50 text-slate-500 border-slate-200" },
   CHARGEBACK: { label: "Chargeback", className: "bg-red-50 text-red-600 border-red-200" },
+  REFUNDED: { label: "Refunded to wallet", className: "bg-blue-50 text-blue-700 border-blue-200" },
 };
+
+function canReview(booking: Booking, now: Date): boolean {
+  return (
+    booking.paymentStatus === "PAID" &&
+    (booking.status === "COMPLETED" ||
+      (booking.status === "CONFIRMED" && new Date(booking.endAt) <= now))
+  );
+}
 
 function formatCurrency(value: string | number) {
   const num = typeof value === "string" ? Number(value) : value;
@@ -104,6 +117,10 @@ export default function BookingsClient({
   function canCancelBooking(booking: Booking, now: Date): boolean {
     if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") {
       return false;
+    }
+    // Unpaid holds can always be released.
+    if (booking.paymentStatus !== "PAID") {
+      return new Date(booking.startAt) > now;
     }
     const hoursUntilStart =
       (new Date(booking.startAt).getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -149,7 +166,9 @@ export default function BookingsClient({
         return;
       }
 
-      if (data.walletCredited) {
+      if (data.cancelledIds?.length > 1) {
+        setCancelSuccess(`Released ${data.cancelledIds.length} unpaid weekly sessions.`);
+      } else if (data.walletCredited) {
         setCancelSuccess(`Rs. ${data.refundAmount} has been credited to your wallet.`);
       } else {
         setCancelSuccess("Booking cancelled successfully.");
@@ -276,7 +295,43 @@ export default function BookingsClient({
                     {booking.orderId && (
                       <p className="mt-2 text-xs text-gray-400">
                         Order: {booking.orderId}
+                        {booking.groupOrderId && " · Weekly series"}
                       </p>
+                    )}
+
+                    {booking.status === "CANCELLED" && booking.cancellationReason && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {booking.cancellationReason}
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold uppercase">
+                      {(booking.paymentStatus === "PAID" || booking.paymentStatus === "REFUNDED") && (
+                        <a
+                          href={`/player/bookings/${booking.id}/receipt`}
+                          className="border-[2px] border-black px-3 py-1.5 hover:bg-black hover:text-white"
+                        >
+                          Receipt
+                        </a>
+                      )}
+                      <a
+                        href={`/locations/${booking.facility.location.id}`}
+                        className="border-[2px] border-black px-3 py-1.5 hover:bg-black hover:text-white"
+                      >
+                        Venue
+                      </a>
+                      {booking.facility.sports[0] && (booking.status !== "PENDING" || new Date(booking.startAt) <= now) && (
+                        <a
+                          href={`/player/find-booking?sport=${booking.facility.sports[0].id}`}
+                          className="border-[2px] border-black px-3 py-1.5 hover:bg-black hover:text-white"
+                        >
+                          Book again
+                        </a>
+                      )}
+                    </div>
+
+                    {canReview(booking, now) && (
+                      <ReviewForm bookingId={booking.id} initialReview={booking.review} />
                     )}
                   </div>
 

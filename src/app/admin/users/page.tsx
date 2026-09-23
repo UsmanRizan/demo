@@ -25,8 +25,6 @@ export default function AdminUsersPage() {
   const [creating, setCreating] = useState(false);
 
   async function loadUsers() {
-    setLoading(true);
-
     try {
       const response = await fetch("/api/admin/users");
       const data = await response.json();
@@ -130,6 +128,8 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
+    // Initial data fetch; state is only set after the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUsers();
   }, []);
 

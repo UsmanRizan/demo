@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/monitoring";
 
 export async function GET() {
   try {
@@ -38,13 +39,15 @@ export async function GET() {
         id: t.id,
         amount: t.amount.toString(),
         type: t.type,
+        category: t.category,
+        balanceAfter: t.balanceAfter?.toString() ?? null,
         bookingId: t.bookingId,
         note: t.note,
         createdAt: t.createdAt.toISOString(),
       })),
     });
   } catch (error) {
-    console.error("Wallet fetch error:", error);
+    logError("Wallet fetch error:", error);
 
     return NextResponse.json(
       { error: "Failed to fetch wallet." },

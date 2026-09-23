@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { facilityCreateSchema, parseJson } from "@/lib/validation";
+import { logError } from "@/lib/monitoring";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -11,37 +13,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const parsed = await parseJson(request, facilityCreateSchema);
 
-    const locationId =
-      typeof body.locationId === "string" ? body.locationId : "";
-
-    const sportIds: string[] = Array.isArray(body.sportIds)
-      ? body.sportIds.filter((id: unknown) => typeof id === "string")
-      : [];
-
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-
-    const description =
-      typeof body.description === "string" ? body.description.trim() : null;
-
-    const price = Number(body.price);
-
-    if (!locationId || sportIds.length === 0 || !name) {
-      return NextResponse.json(
-        {
-          error: "Location, at least one sport, and facility name are required",
-        },
-        { status: 400 },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    if (!Number.isFinite(price) || price <= 0) {
-      return NextResponse.json(
-        { error: "Price must be greater than zero" },
-        { status: 400 },
-      );
-    }
+    const { locationId, sportIds, name, description, imageUrl, price } =
+      parsed.data;
 
     // Make sure the location belongs to this owner.
     const location = await prisma.location.findFirst({
@@ -78,6 +57,7 @@ export async function POST(request: Request) {
         locationId,
         name,
         description,
+        imageUrl,
         price,
         sports: {
           connect: sportIds.map((id) => ({ id })),
@@ -97,7 +77,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("Create facility error:", error);
+    logError("Create facility error:", error);
 
     return NextResponse.json(
       { error: "Failed to create facility" },

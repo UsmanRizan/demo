@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { maskAccountNumber } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/monitoring";
 
 export async function GET() {
   try {
@@ -25,7 +27,7 @@ export async function GET() {
         id: r.id,
         amount: r.amount.toString(),
         bankName: r.bankName,
-        accountNumber: r.accountNumber,
+        accountNumber: maskAccountNumber(r.accountLast4),
         accountHolderName: r.accountHolderName,
         status: r.status,
         adminNote: r.adminNote,
@@ -34,7 +36,7 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error("Owner withdrawals fetch error:", error);
+    logError("Owner withdrawals fetch error:", error);
 
     return NextResponse.json(
       { error: "Failed to fetch withdrawal requests." },

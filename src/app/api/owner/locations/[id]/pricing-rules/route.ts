@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseJson, pricingRulesSchema } from "@/lib/validation";
+import { logError } from "@/lib/monitoring";
 
 type RouteContext = {
   params: Promise<{
@@ -63,56 +65,13 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const body = await request.json();
+    const parsed = await parseJson(request, pricingRulesSchema);
 
-    if (!Array.isArray(body.rules)) {
-      return NextResponse.json(
-        { error: "rules must be an array" },
-        { status: 400 },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    const rules = body.rules;
-
-    // Validate each rule
-    for (const rule of rules) {
-      if (typeof rule.startTime !== "string" || typeof rule.endTime !== "string") {
-        return NextResponse.json(
-          { error: "startTime and endTime are required for each rule" },
-          { status: 400 },
-        );
-      }
-
-      if (!/^\d{2}:\d{2}$/.test(rule.startTime) || !/^\d{2}:\d{2}$/.test(rule.endTime)) {
-        return NextResponse.json(
-          { error: "Times must use HH:MM format" },
-          { status: 400 },
-        );
-      }
-
-      if (typeof rule.percentage !== "number" || !Number.isFinite(rule.percentage)) {
-        return NextResponse.json(
-          { error: "percentage must be a valid number" },
-          { status: 400 },
-        );
-      }
-
-      if (rule.percentage < -50 || rule.percentage > 100) {
-        return NextResponse.json(
-          { error: "percentage must be between -50 and 100" },
-          { status: 400 },
-        );
-      }
-
-      if (rule.dayOfWeek !== null && rule.dayOfWeek !== undefined) {
-        if (!Number.isInteger(rule.dayOfWeek) || rule.dayOfWeek < 0 || rule.dayOfWeek > 6) {
-          return NextResponse.json(
-            { error: "dayOfWeek must be between 0 and 6" },
-            { status: 400 },
-          );
-        }
-      }
-    }
+    const rules = parsed.data.rules;
 
     const updatedRules = await prisma.$transaction(async (tx) => {
       await tx.pricingRule.deleteMany({
@@ -124,14 +83,7 @@ export async function PUT(request: Request, context: RouteContext) {
       if (rules.length > 0) {
         await tx.pricingRule.createMany({
           data: rules.map(
-            (rule: {
-              name?: string;
-              startTime: string;
-              endTime: string;
-              percentage: number;
-              dayOfWeek?: number | null;
-              isActive?: boolean;
-            }) => ({
+            (rule) => ({
               locationId: id,
               name: rule.name || null,
               startTime: rule.startTime,
@@ -157,7 +109,7 @@ export async function PUT(request: Request, context: RouteContext) {
       rules: updatedRules,
     });
   } catch (error) {
-    console.error("Pricing rules error:", error);
+    logError("Pricing rules error:", error);
 
     return NextResponse.json(
       { error: "Failed to update pricing rules" },

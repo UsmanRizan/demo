@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { availabilitySchema, parseJson } from "@/lib/validation";
+import { logError } from "@/lib/monitoring";
 
 type RouteContext = {
   params: Promise<{
@@ -67,84 +69,13 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const body = await request.json();
+    const parsed = await parseJson(request, availabilitySchema);
 
-    if (!Array.isArray(body.availability)) {
-      return NextResponse.json(
-        {
-          error: "availability must be an array",
-        },
-        { status: 400 },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    const entries = body.availability;
-
-    // Validate each day
-    for (const entry of entries) {
-      if (
-        !Number.isInteger(entry.dayOfWeek) ||
-        entry.dayOfWeek < 0 ||
-        entry.dayOfWeek > 6
-      ) {
-        return NextResponse.json(
-          {
-            error: "dayOfWeek must be between 0 and 6",
-          },
-          { status: 400 },
-        );
-      }
-
-      const is24h = entry.isTwentyFourHour === true;
-
-      if (!is24h) {
-        if (
-          typeof entry.startTime !== "string" ||
-          typeof entry.endTime !== "string"
-        ) {
-          return NextResponse.json(
-            {
-              error: "startTime and endTime are required",
-            },
-            { status: 400 },
-          );
-        }
-
-        if (
-          !/^\d{2}:\d{2}$/.test(entry.startTime) ||
-          !/^\d{2}:\d{2}$/.test(entry.endTime)
-        ) {
-          return NextResponse.json(
-            {
-              error: "Times must use HH:MM format",
-            },
-            { status: 400 },
-          );
-        }
-
-        if (entry.startTime >= entry.endTime) {
-          return NextResponse.json(
-            {
-              error: "Start time must be before end time",
-            },
-            { status: 400 },
-          );
-        }
-      }
-    }
-
-    const uniqueDays = new Set(
-      entries.map((entry: { dayOfWeek: number }) => entry.dayOfWeek),
-    );
-
-    if (uniqueDays.size !== entries.length) {
-      return NextResponse.json(
-        {
-          error: "A day cannot be added more than once",
-        },
-        { status: 400 },
-      );
-    }
+    const entries = parsed.data.availability;
 
     const availability = await prisma.$transaction(async (tx) => {
       await tx.availability.deleteMany({
@@ -156,17 +87,11 @@ export async function PUT(request: Request, context: RouteContext) {
       if (entries.length > 0) {
         await tx.availability.createMany({
           data: entries.map(
-            (entry: {
-              dayOfWeek: number;
-              startTime: string;
-              endTime: string;
-              isActive?: boolean;
-              isTwentyFourHour?: boolean;
-            }) => ({
+            (entry) => ({
               locationId: id,
               dayOfWeek: entry.dayOfWeek,
-              startTime: entry.isTwentyFourHour ? "00:00" : entry.startTime,
-              endTime: entry.isTwentyFourHour ? "24:00" : entry.endTime,
+              startTime: entry.isTwentyFourHour ? "00:00" : (entry.startTime ?? "00:00"),
+              endTime: entry.isTwentyFourHour ? "24:00" : (entry.endTime ?? "24:00"),
               isActive: entry.isActive ?? true,
               isTwentyFourHour: entry.isTwentyFourHour ?? false,
             }),
@@ -189,7 +114,7 @@ export async function PUT(request: Request, context: RouteContext) {
       availability,
     });
   } catch (error) {
-    console.error("Location availability error:", error);
+    logError("Location availability error:", error);
 
     return NextResponse.json(
       {

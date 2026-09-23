@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import AccountSettings from "@/components/AccountSettings";
+
 export default function PlayerProfilePage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -341,6 +343,8 @@ export default function PlayerProfilePage() {
               </p>
             )}
           </div>
+
+          <AccountSettings />
         </div>
       </div>
     </main>

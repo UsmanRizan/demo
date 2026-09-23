@@ -1,7 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
+import { audit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
+import { BookingError, cancelBooking } from "@/lib/bookings";
+import { logError } from "@/lib/monitoring";
+import { notifyBookingCancelled } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
+import { ownerBookingActionSchema, parseJson } from "@/lib/validation";
 
 export async function PATCH(
   request: Request,
@@ -17,125 +22,128 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id } = await params;
+  try {
+    const { id } = await params;
 
-  const body = await request.json();
+    const parsed = await parseJson(request, ownerBookingActionSchema);
 
-  const action = body.action;
+    if (parsed.response) {
+      return parsed.response;
+    }
 
-  if (!["confirm", "complete", "cancel"].includes(action)) {
-    return NextResponse.json(
-      { error: "Invalid action. Use confirm, complete, or cancel." },
-      { status: 400 },
-    );
-  }
+    const { action, reason } = parsed.data;
 
-  const booking = await prisma.booking.findFirst({
-    where: {
-      id,
-      facility: {
-        location: {
-          ownerId: currentUser.id,
-        },
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id,
+        facility: { location: { ownerId: currentUser.id } },
       },
-    },
-    include: {
-      facility: {
-        include: {
-          sports: true,
-          location: true,
-        },
-      },
-      player: {
-        select: { firstName: true, lastName: true, phone: true, email: true },
-      },
-    },
-  });
+    });
 
-  if (!booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-  }
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
 
-  let updateData: Record<string, unknown> = {};
+    let walletCredited = false;
+    let refundAmount = 0;
 
-  if (action === "confirm") {
-    updateData = { status: "CONFIRMED" };
-  } else if (action === "complete") {
-    updateData = { status: "COMPLETED" };
-  } else if (action === "cancel") {
-    updateData = { status: "CANCELLED", paymentStatus: "CANCELLED", expiresAt: null };
-  }
-
-  const updated = await prisma.booking.update({
-    where: { id: booking.id },
-    data: updateData,
-    include: {
-      facility: {
-        include: {
-          sports: { select: { id: true, name: true } },
-          location: { select: { id: true, name: true, address: true, city: true } },
-        },
-      },
-      player: {
-        select: { firstName: true, lastName: true, phone: true, email: true, id: true },
-      },
-    },
-  });
-
-  // Credit player's wallet if a paid booking was cancelled
-  let walletCredited = false;
-  if (action === "cancel" && booking.paymentStatus === "PAID") {
-    const refundAmount = Number(booking.totalPrice);
-    try {
-      await prisma.$transaction(async (tx) => {
-        const wallet = await tx.wallet.upsert({
-          where: { userId: booking.playerId },
-          create: {
-            userId: booking.playerId,
-            balance: refundAmount,
-          },
-          update: {
-            balance: {
-              increment: refundAmount,
-            },
-          },
-        });
-
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount: refundAmount,
-            type: "CREDIT",
-            bookingId: booking.id,
-            note: "Booking cancellation refund by owner",
-          },
-        });
+    if (action === "cancel") {
+      const result = await cancelBooking({
+        bookingId: booking.id,
+        actor: { kind: "owner", userId: currentUser.id },
+        reason: reason || "Cancelled by venue",
       });
 
-      walletCredited = true;
-    } catch (walletError) {
-      console.error("Wallet credit failed (booking still cancelled):", walletError);
-    }
-  }
+      walletCredited = result.walletCredited;
+      refundAmount = result.refundAmount;
 
-  return NextResponse.json({
-    id: updated.id,
-    startAt: updated.startAt.toISOString(),
-    endAt: updated.endAt.toISOString(),
-    totalPrice: updated.totalPrice.toString(),
-    status: updated.status,
-    paymentStatus: updated.paymentStatus,
-    paymentMethod: updated.paymentMethod,
-    orderId: updated.orderId,
-    createdAt: updated.createdAt.toISOString(),
-    player: updated.player,
-    facility: {
-      id: updated.facility.id,
-      name: updated.facility.name,
-      price: updated.facility.price.toString(),
-      sports: updated.facility.sports,
-      location: updated.facility.location,
-    },
-    ...(action === "cancel" && { walletCredited }),
-  });
+      after(() =>
+        notifyBookingCancelled(booking.id, "owner", result.refundAmount, reason),
+      );
+    } else if (action === "confirm") {
+      // Only paid bookings can be confirmed; an unpaid hold is not a booking yet.
+      if (booking.status !== "PENDING" || booking.paymentStatus !== "PAID") {
+        return NextResponse.json(
+          { error: "Only paid, pending bookings can be confirmed." },
+          { status: 400 },
+        );
+      }
+
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "CONFIRMED" },
+      });
+    } else {
+      if (booking.status !== "CONFIRMED" || booking.endAt > new Date()) {
+        return NextResponse.json(
+          { error: "Only confirmed bookings that have ended can be completed." },
+          { status: 400 },
+        );
+      }
+
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "COMPLETED" },
+      });
+    }
+
+    await audit({
+      actorId: currentUser.id,
+      action: `booking.${action}`,
+      entityType: "Booking",
+      entityId: booking.id,
+      metadata: { reason: reason ?? null, refundAmount },
+      request,
+    });
+
+    const updated = await prisma.booking.findUniqueOrThrow({
+      where: { id: booking.id },
+      include: {
+        facility: {
+          include: {
+            sports: { select: { id: true, name: true } },
+            location: { select: { id: true, name: true, address: true, city: true } },
+          },
+        },
+        player: {
+          select: { firstName: true, lastName: true, phone: true, email: true, id: true },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      id: updated.id,
+      startAt: updated.startAt.toISOString(),
+      endAt: updated.endAt.toISOString(),
+      totalPrice: updated.totalPrice.toString(),
+      status: updated.status,
+      paymentStatus: updated.paymentStatus,
+      paymentMethod: updated.paymentMethod,
+      orderId: updated.orderId,
+      createdAt: updated.createdAt.toISOString(),
+      player: updated.player,
+      facility: {
+        id: updated.facility.id,
+        name: updated.facility.name,
+        price: updated.facility.price.toString(),
+        sports: updated.facility.sports,
+        location: updated.facility.location,
+      },
+      ...(action === "cancel" && {
+        walletCredited,
+        refundAmount: refundAmount.toFixed(2),
+      }),
+    });
+  } catch (error) {
+    if (error instanceof BookingError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    logError("Owner booking action error:", error);
+
+    return NextResponse.json(
+      { error: "Failed to update booking" },
+      { status: 500 },
+    );
+  }
 }

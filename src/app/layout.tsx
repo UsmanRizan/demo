@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Mono } from "next/font/google";
 import "./globals.css";
+import { siteUrl } from "@/lib/site";
 
 const spaceMono = Space_Mono({
   subsets: ["latin"],
@@ -10,6 +11,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "BookMyPlay — Sports Facility Booking",
     template: "%s | BookMyPlay",

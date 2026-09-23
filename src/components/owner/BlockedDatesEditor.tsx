@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { requestWithClosureConfirm } from "@/lib/client/closure-request";
+
 type BlockedDate = {
   id: string;
   date: string;
@@ -69,23 +71,27 @@ export default function BlockedDatesEditor({
     setAdding(true);
 
     try {
-      const response = await fetch(
+      const result = await requestWithClosureConfirm(
         `/api/owner/locations/${locationId}/blocked-dates`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: selectedDate, reason: reason || null }),
-        },
+        "POST",
+        { date: selectedDate, reason: reason || null },
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Failed to block date");
+      if (result.aborted) {
         return;
       }
 
-      setMessage("Date blocked successfully.");
+      if (!result.ok) {
+        setError(String(result.data.error || "Failed to block date"));
+        return;
+      }
+
+      const cancelled = Number(result.data.cancelledBookings || 0);
+      setMessage(
+        cancelled > 0
+          ? `Date blocked. ${cancelled} booking${cancelled === 1 ? " was" : "s were"} cancelled and refunded; the players have been notified.`
+          : "Date blocked successfully.",
+      );
       setSelectedDate("");
       setReason("");
       loadBlockedDates();

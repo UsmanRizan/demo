@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Placeholders so modules that validate config at import time can load.
+  SESSION_SECRET: ci-session-secret-not-for-production
+  DATA_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+  PAYHERE_MERCHANT_ID: "1200000"
+  PAYHERE_MERCHANT_SECRET: ci-merchant-secret
+  PAYHERE_MODE: sandbox
+  APP_URL: http://localhost:3000
+  CRON_SECRET: ci-cron-secret
+  NOTIFICATIONS_DRY_RUN: "true"
+  OTP_DEV_LOG: "true"
+  TEXTLK_API_TOKEN: unused
+  TEXTLK_SENDER_ID: unused
+
+jobs:
+  check:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  integration:
+    name: Migrations, build, end-to-end tests
+    runs-on: ubuntu-latest
+    needs: check
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bookmyplay
+          POSTGRES_PASSWORD: bookmyplay
+          POSTGRES_DB: bookmyplay
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bookmyplay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://bookmyplay:bookmyplay@localhost:5432/bookmyplay
+      E2E_BASE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply all migrations to a clean database
+        run: npx prisma migrate deploy
+      - name: Check schema matches migrations
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - run: npm run build
+      # E2E runs against the dev server: OTP_DEV_LOG (print OTPs instead of
+      # sending paid SMS) is deliberately ignored when NODE_ENV=production.
+      - name: Start app
+        run: |
+          npx next dev -p 3000 > server.log 2>&1 &
+          npx --yes wait-on --timeout 60000 http://localhost:3000/api/health
+      - run: npm run test:e2e
+      - name: Server log
+        if: failure()
+        run: cat server.log

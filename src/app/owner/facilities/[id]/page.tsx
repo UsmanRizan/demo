@@ -1,10 +1,13 @@
 import { notFound, redirect } from "next/navigation";
+import Image from "next/image";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSportIcon } from "@/lib/sport-icons";
 import FacilityPriceEditor from "@/components/owner/FacilityPriceEditor";
 import FacilitySportsEditor from "@/components/owner/FacilitySportsEditor";
+import ActiveToggle from "@/components/owner/ActiveToggle";
+import GalleryManager from "@/components/owner/GalleryManager";
 
 type PageProps = {
   params: Promise<{
@@ -70,10 +73,27 @@ export default async function FacilityPage({ params }: PageProps) {
               <p className="mt-2 text-gray-600">{facility.location.name}</p>
             </div>
 
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
-              {facility.isActive ? "Active" : "Inactive"}
-            </span>
+            <div className="flex flex-col items-start gap-3 sm:items-end">
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
+                {facility.isActive ? "Active" : "Inactive"}
+              </span>
+              <ActiveToggle
+                endpoint={`/api/owner/facilities/${facility.id}`}
+                isActive={facility.isActive}
+                noun="court"
+              />
+            </div>
           </div>
+
+          {facility.imageUrl && (
+            <Image
+              src={facility.imageUrl}
+              alt={facility.name}
+              width={896}
+              height={256}
+              className="mt-6 h-48 w-full rounded-lg border border-gray-200 object-cover sm:h-64"
+            />
+          )}
 
           {facility.description && (
             <p className="mt-4 text-gray-600 sm:mt-6">{facility.description}</p>
@@ -90,14 +110,17 @@ export default async function FacilityPage({ params }: PageProps) {
             initialPrice={facility.price.toString()}
           />
 
-          <div className="mt-8 rounded-lg border border-dashed border-gray-300 p-6">
-            <h2 className="text-lg font-semibold">Availability</h2>
-
-            <p className="mt-2 text-sm text-gray-600">
-              We'll configure the facility's weekly opening hours and bookable
-              time slots in the next step.
-            </p>
+          <div className="mt-8">
+            <GalleryManager kind="facility" id={facility.id} />
           </div>
+
+          <p className="mt-8 text-sm text-gray-600">
+            Opening hours, blocked dates and peak pricing are set per location on the{" "}
+            <a href={`/owner/locations/${facility.location.id}`} className="font-medium underline">
+              {facility.location.name}
+            </a>{" "}
+            page.
+          </p>
         </div>
       </div>
     </main>

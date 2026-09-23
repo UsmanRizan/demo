@@ -75,6 +75,7 @@ export default function Header({ user }: HeaderProps) {
       ? [
           { href: "/player/find-booking", label: "Find Courts" },
           { href: "/player/bookings", label: "My Bookings" },
+          { href: "/player/favorites", label: "Saved" },
         ]
       : user.role === "OWNER"
         ? [
@@ -91,6 +92,7 @@ export default function Header({ user }: HeaderProps) {
               { href: "/admin/users", label: "Users" },
               { href: "/admin/sports", label: "Sports" },
               { href: "/admin/withdrawals", label: "Withdrawals" },
+              { href: "/admin/audit", label: "Audit Log" },
             ]
     : [];
 

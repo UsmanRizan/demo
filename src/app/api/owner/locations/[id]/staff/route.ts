@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
-import { normalizePhone } from "@/lib/utils";
+import { parseJson, staffCreateSchema, staffRemoveSchema } from "@/lib/validation";
+import { logError } from "@/lib/monitoring";
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -49,7 +51,7 @@ export async function GET(
 
     return NextResponse.json({ staff: staffAssignments });
   } catch (error) {
-    console.error("Get staff error:", error);
+    logError("Get staff error:", error);
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 },
@@ -80,59 +82,35 @@ export async function POST(
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
 
-    const body = await request.json();
+    const parsed = await parseJson(request, staffCreateSchema);
 
-    if (!body.phone || typeof body.phone !== "string") {
-      return NextResponse.json(
-        { error: "Phone number is required" },
-        { status: 400 },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    if (!body.password || typeof body.password !== "string") {
-      return NextResponse.json(
-        { error: "Password is required" },
-        { status: 400 },
-      );
-    }
-
-    if (body.password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
-        { status: 400 },
-      );
-    }
-
-    const phone = normalizePhone(body.phone);
+    const { phone, password } = parsed.data;
 
     // Find or create the staff user
     let staffUser = await prisma.user.findUnique({ where: { phone } });
 
     if (staffUser) {
-      // If the user exists and is not a PLAYER or STAFF, we can't assign them
-      if (staffUser.role !== "PLAYER" && staffUser.role !== "STAFF") {
+      // Never take over an existing account: an owner could otherwise reset a
+      // player's password by "adding" their number as staff. Existing staff
+      // accounts are assigned as-is and keep their own password.
+      if (staffUser.role !== "STAFF" || staffUser.deletedAt) {
         return NextResponse.json(
-          { error: "This phone number is already registered as an owner or admin" },
+          {
+            error:
+              "This phone number already belongs to another account and cannot be added as staff.",
+          },
           { status: 400 },
         );
       }
-
-      // Update password for existing user
-      const passwordHash = await hashPassword(body.password);
-      staffUser = await prisma.user.update({
-        where: { id: staffUser.id },
-        data: {
-          passwordHash,
-          role: "STAFF",
-        },
-      });
     } else {
-      // Create new staff user
-      const passwordHash = await hashPassword(body.password);
       staffUser = await prisma.user.create({
         data: {
           phone,
-          passwordHash,
+          passwordHash: await hashPassword(password),
           role: "STAFF",
         },
       });
@@ -175,9 +153,18 @@ export async function POST(
       },
     });
 
+    await audit({
+      actorId: user.id,
+      action: "staff.assign",
+      entityType: "Location",
+      entityId: id,
+      metadata: { staffId: staffUser.id },
+      request,
+    });
+
     return NextResponse.json({ staff: assignment }, { status: 201 });
   } catch (error) {
-    console.error("Assign staff error:", error);
+    logError("Assign staff error:", error);
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 },
@@ -208,14 +195,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
 
-    const body = await request.json();
+    const parsedRemove = await parseJson(request, staffRemoveSchema);
 
-    if (!body.staffId || typeof body.staffId !== "string") {
-      return NextResponse.json(
-        { error: "Staff ID is required" },
-        { status: 400 },
-      );
+    if (parsedRemove.response) {
+      return parsedRemove.response;
     }
+
+    const body = parsedRemove.data;
 
     // Check if assignment exists
     const existingAssignment = await prisma.locationStaff.findUnique({
@@ -243,9 +229,18 @@ export async function DELETE(
       },
     });
 
+    await audit({
+      actorId: user.id,
+      action: "staff.remove",
+      entityType: "Location",
+      entityId: id,
+      metadata: { staffId: body.staffId },
+      request,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Remove staff error:", error);
+    logError("Remove staff error:", error);
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 },

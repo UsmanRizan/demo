@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { calculatePlayerPrice } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
-import { calculateDynamicPrice } from "@/lib/pricing";
+import { getFacilitiesWithSlots } from "@/lib/availability";
+import { isValidDate } from "@/lib/utils";
 
 const TIME_PERIODS = {
   morning: {
@@ -24,66 +23,13 @@ const TIME_PERIODS = {
 
 type Period = keyof typeof TIME_PERIODS;
 
-import { createLocalDateTime, isValidDate } from "@/lib/utils";
-
-function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-
-  const total = hours * 60 + minutes;
-
-  // Treat 23:59 as end-of-day (1440) so the last hourly slot (23:00–24:00) is generated
-  if (total === 23 * 60 + 59) {
-    return 24 * 60;
-  }
-
-  return total;
-}
-
-function minutesToTime(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-
-  const mins = minutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-}
-
-function getDayOfWeek(dateString: string) {
-  const [year, month, day] = dateString.split("-").map(Number);
-
-  return new Date(year, month - 1, day).getDay();
-}
-
-function generateHourlySlots(
-  openingStart: string,
-  openingEnd: string,
-  periodStart: number,
-  periodEnd: number,
-) {
-  const start = Math.max(timeToMinutes(openingStart), periodStart);
-
-  const end = Math.min(timeToMinutes(openingEnd), periodEnd);
-
-  const slots: {
-    startTime: string;
-    endTime: string;
-  }[] = [];
-
-  for (let current = start; current + 60 <= end; current += 60) {
-    slots.push({
-      startTime: minutesToTime(current),
-      endTime: minutesToTime(current + 60),
-    });
-  }
-
-  return slots;
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   const sportId = searchParams.get("sportId");
   const date = searchParams.get("date");
   const period = searchParams.get("period") as Period | null;
+  const city = searchParams.get("city")?.trim();
 
   if (!sportId || !date || !period) {
     return NextResponse.json(
@@ -104,187 +50,19 @@ export async function GET(request: Request) {
 
   const selectedPeriod = TIME_PERIODS[period];
 
-  const dayOfWeek = getDayOfWeek(date);
-
-  // Check if this date is blocked for any location
-  const blockedDatesForDay = await prisma.blockedDate.findMany({
+  const facilities = await getFacilitiesWithSlots({
     where: {
-      date: createLocalDateTime(date, "00:00"),
+      sports: { some: { id: sportId } },
+      ...(city ? { location: { city: { equals: city, mode: "insensitive" } } } : {}),
     },
-    select: {
-      locationId: true,
-      reason: true,
-    },
+    date,
+    range: [selectedPeriod.start, selectedPeriod.end],
   });
 
-  const blockedLocationMap = new Map(
-    blockedDatesForDay.map((r) => [r.locationId, r.reason]),
+  const results = facilities.filter(
+    (facility) =>
+      facility.slots.some((slot) => slot.available) || facility.blockedReason !== null,
   );
-
-  const dayStart = createLocalDateTime(date, "00:00");
-
-  const dayEnd = createLocalDateTime(date, "23:59");
-
-  const facilities = await prisma.facility.findMany({
-    where: {
-      sports: {
-        some: {
-          id: sportId,
-        },
-      },
-      isActive: true,        location: {
-          isActive: true,
-          availabilities: {
-            some: {
-              dayOfWeek,
-              isActive: true,
-            },
-          },
-        },
-    },
-
-    select: {
-      id: true,
-      name: true,
-      price: true,
-
-      sports: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },      location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            city: true,
-            latitude: true,
-            longitude: true,
-
-            availabilities: {
-              where: {
-                dayOfWeek,
-                isActive: true,
-              },
-              select: {
-                dayOfWeek: true,
-                startTime: true,
-                endTime: true,
-              },
-            },
-
-            pricingRules: {
-              where: {
-                isActive: true,
-              },
-              select: {
-                startTime: true,
-                endTime: true,
-                percentage: true,
-                dayOfWeek: true,
-                isActive: true,
-              },
-            },
-          },
-        },
-
-      bookings: {
-        where: {
-          status: "CONFIRMED",
-          startAt: {
-            lt: dayEnd,
-          },
-          endAt: {
-            gt: dayStart,
-          },
-        },
-        select: {
-          startAt: true,
-          endAt: true,
-        },
-      },
-    },
-  });
-
-  const results = facilities
-    .map((facility) => {
-      const openingHours = facility.location.availabilities;
-
-      const allSlots = openingHours.flatMap((opening) =>
-        generateHourlySlots(
-          opening.startTime,
-          opening.endTime,
-          selectedPeriod.start,
-          selectedPeriod.end,
-        ),
-      );
-
-      const uniqueSlots = Array.from(
-        new Map(
-          allSlots.map((slot) => [`${slot.startTime}-${slot.endTime}`, slot]),
-        ).values(),
-      ).sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-      // Check if this date is today
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const isToday = date === todayStr;
-      const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-
-      const slots = uniqueSlots.map((slot) => {
-        const slotStart = createLocalDateTime(date, slot.startTime);
-
-        const slotEnd = createLocalDateTime(date, slot.endTime);
-
-        const isBooked = facility.bookings.some(
-          (booking) => booking.startAt < slotEnd && booking.endAt > slotStart,
-        );
-
-        // Disable slots that have already passed (for today's date)
-        const slotStartMinutes = timeToMinutes(slot.startTime);
-        const isPast = isToday && slotStartMinutes <= currentTimeMinutes;
-
-        const isBlocked = blockedLocationMap.has(facility.location.id);
-
-        // Apply dynamic pricing for this slot
-        const { adjustedPrice, surgePercentage } = calculateDynamicPrice(
-          Number(facility.price),
-          slot.startTime,
-          dayOfWeek,
-          facility.location.pricingRules,
-        );
-
-        return {
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          available: !isBooked && !isPast && !isBlocked,
-          pricePerHour: calculatePlayerPrice(adjustedPrice),
-          surgePercentage,
-        };
-      });
-
-      const blockedReason =
-        blockedLocationMap.get(facility.location.id) ?? null;
-
-      // Calculate average surge across available slots for display
-      const availableSlots = slots.filter((s) => s.available);
-      const avgSurge = availableSlots.length > 0
-        ? availableSlots.reduce((sum, s) => sum + s.surgePercentage, 0) / availableSlots.length
-        : 0;
-
-      return {
-        id: facility.id,
-        name: facility.name,
-        price: calculatePlayerPrice(Number(facility.price)),
-        sports: facility.sports,
-        location: facility.location,
-        blockedReason,
-        slots,
-        avgSurge: Math.round(avgSurge),
-      };
-    })
-    .filter((facility) => facility.slots.some((slot) => slot.available) || facility.blockedReason !== null);
 
   return NextResponse.json({
     date,

@@ -120,13 +120,13 @@ export default function Footer() {
               &copy; {new Date().getFullYear()} BookMyPlay Pvt. Ltd. All rights reserved.
             </p>
             <div className="flex gap-5">
-              <a href="#" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">
+              <a href="/privacy" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">
                 Privacy Policy
               </a>
-              <a href="#" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">
+              <a href="/terms" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">
                 Terms of Service
               </a>
-              <a href="#" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">
+              <a href="/privacy#cookies" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">
                 Cookies
               </a>
             </div>

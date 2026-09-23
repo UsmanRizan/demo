@@ -7,6 +7,11 @@ import AvailabilityEditor from "@/components/owner/AvailabilityEditor";
 import BlockedDatesEditor from "@/components/owner/BlockedDatesEditor";
 import PricingRulesEditor from "@/components/owner/PricingRulesEditor";
 import StaffManager from "@/components/owner/StaffManager";
+import ActiveToggle from "@/components/owner/ActiveToggle";
+import GalleryManager from "@/components/owner/GalleryManager";
+import ReviewReply from "@/components/owner/ReviewReply";
+import StarRating from "@/components/StarRating";
+import { reviewerName } from "@/lib/reviews";
 
 type PageProps = {
   params: Promise<{
@@ -48,6 +53,16 @@ export default async function LocationPage({ params }: PageProps) {
     notFound();
   }
 
+  const reviews = await prisma.review.findMany({
+    where: { locationId: location.id },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+    include: {
+      facility: { select: { name: true } },
+      player: { select: { firstName: true, lastName: true } },
+    },
+  });
+
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-6xl">
@@ -59,6 +74,12 @@ export default async function LocationPage({ params }: PageProps) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold sm:text-3xl">{location.name}</h1>
+
+              {!location.isActive && (
+                <p className="mt-2 inline-block rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+                  Closed — not taking bookings
+                </p>
+              )}
 
               <p className="mt-2 text-gray-600">
                 {location.address}, {location.city}
@@ -84,6 +105,10 @@ export default async function LocationPage({ params }: PageProps) {
                   {location.description}
                 </p>
               )}
+
+              <section className="mt-8">
+                <GalleryManager kind="location" id={location.id} />
+              </section>
 
               <section className="mt-8">
                 <AvailabilityEditor locationId={location.id} />
@@ -116,6 +141,19 @@ export default async function LocationPage({ params }: PageProps) {
               >
                 View Bookings
               </a>
+
+              <a
+                href={`/locations/${location.id}`}
+                className="w-full rounded-lg border border-gray-300 px-5 py-3 text-center text-sm font-medium sm:w-auto"
+              >
+                Public page
+              </a>
+
+              <ActiveToggle
+                endpoint={`/api/owner/locations/${location.id}`}
+                isActive={location.isActive}
+                noun="location"
+              />
             </div>
           </div>
         </div>
@@ -170,6 +208,39 @@ export default async function LocationPage({ params }: PageProps) {
               </div>
             )}
           </div>
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-2xl font-bold">Reviews</h2>
+
+          {reviews.length === 0 ? (
+            <div className="mt-5 rounded-xl bg-white p-6 text-gray-600">
+              No reviews yet.
+            </div>
+          ) : (
+            <ul className="mt-5 space-y-4">
+              {reviews.map((review) => (
+                <li key={review.id} className="rounded-xl bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">
+                      {reviewerName(review.player)}
+                      <span className="text-gray-500"> · {review.facility.name}</span>
+                      {review.isHidden && (
+                        <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                          Hidden by admin
+                        </span>
+                      )}
+                    </p>
+                    <StarRating rating={review.rating} size="text-sm" />
+                  </div>
+                  {review.comment && (
+                    <p className="mt-2 text-sm text-gray-700">{review.comment}</p>
+                  )}
+                  <ReviewReply reviewId={review.id} initialReply={review.ownerReply} />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </main>

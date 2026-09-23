@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
+import { audit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
+import { logError } from "@/lib/monitoring";
+import { prisma } from "@/lib/prisma";
+import { parseJson, sportSchema } from "@/lib/validation";
 
 export async function GET() {
   const currentUser = await getCurrentUser();
@@ -29,51 +32,31 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const parsed = await parseJson(request, sportSchema);
 
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-
-    if (!name) {
-      return NextResponse.json(
-        { error: "Sport name is required" },
-        { status: 400 },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
+
+    const { name } = parsed.data;
 
     const slug = name
       .toLowerCase()
-      .trim()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
     if (!slug) {
-      return NextResponse.json(
-        { error: "Invalid sport name" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid sport name" }, { status: 400 });
     }
 
     const existingSport = await prisma.sport.findFirst({
       where: {
-        OR: [
-          {
-            name: {
-              equals: name,
-              mode: "insensitive",
-            },
-          },
-          {
-            slug,
-          },
-        ],
+        OR: [{ name: { equals: name, mode: "insensitive" } }, { slug }],
       },
     });
 
     if (existingSport) {
-      return NextResponse.json(
-        { error: "Sport already exists" },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: "Sport already exists" }, { status: 409 });
     }
 
     const sport = await prisma.sport.create({
@@ -83,12 +66,21 @@ export async function POST(request: Request) {
       },
     });
 
+    await audit({
+      actorId: currentUser.id,
+      action: "sport.create",
+      entityType: "Sport",
+      entityId: sport.id,
+      metadata: { name },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       sport,
     });
   } catch (error) {
-    console.error("Create sport error:", error);
+    logError("Create sport error:", error);
 
     return NextResponse.json(
       { error: "Failed to create sport" },

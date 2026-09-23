@@ -1,37 +1,36 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
+import { setSessionCookie } from "@/lib/auth";
+import { logError } from "@/lib/monitoring";
 import { verifyOtpHash } from "@/lib/otp";
-import { createSession } from "@/lib/session";
-import { normalizePhone } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
+import { enforceRateLimits } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/request";
+import { parseJson, verifyOtpSchema } from "@/lib/validation";
+
+const MAX_ATTEMPTS = 5;
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const limited = await enforceRateLimits([
+      { key: `verify-otp:ip:${getClientIp(request)}`, limit: 30, windowSeconds: 900 },
+    ]);
 
-    if (
-      !body.phone ||
-      typeof body.phone !== "string" ||
-      !body.code ||
-      typeof body.code !== "string"
-    ) {
-      return NextResponse.json(
-        { error: "Phone number and OTP are required" },
-        { status: 400 },
-      );
+    if (limited) {
+      return limited;
     }
 
-    const phone = normalizePhone(body.phone);
-    const code = body.code.trim();
+    const parsed = await parseJson(request, verifyOtpSchema);
+
+    if (parsed.response) {
+      return parsed.response;
+    }
+
+    const { phone, code } = parsed.data;
 
     const otpRecord = await prisma.otpCode.findFirst({
-      where: {
-        phone,
-        verified: false,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { phone, verified: false },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!otpRecord) {
@@ -42,11 +41,7 @@ export async function POST(request: Request) {
     }
 
     if (otpRecord.expiresAt < new Date()) {
-      await prisma.otpCode.delete({
-        where: {
-          id: otpRecord.id,
-        },
-      });
+      await prisma.otpCode.delete({ where: { id: otpRecord.id } });
 
       return NextResponse.json(
         { error: "OTP has expired. Request a new OTP." },
@@ -54,58 +49,50 @@ export async function POST(request: Request) {
       );
     }
 
-    if (otpRecord.attempts >= 5) {
+    // Count the attempt before checking, atomically, so parallel guesses
+    // cannot exceed the limit.
+    const attempt = await prisma.otpCode.updateMany({
+      where: { id: otpRecord.id, attempts: { lt: MAX_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+
+    if (attempt.count === 0) {
       return NextResponse.json(
         { error: "Too many attempts. Request a new OTP." },
         { status: 429 },
       );
     }
 
-    const isValid = verifyOtpHash(code, otpRecord.codeHash);
-
-    if (!isValid) {
-      await prisma.otpCode.update({
-        where: {
-          id: otpRecord.id,
-        },
-        data: {
-          attempts: {
-            increment: 1,
-          },
-        },
-      });
-
+    if (!verifyOtpHash(code, otpRecord.codeHash)) {
       return NextResponse.json({ error: "Invalid OTP" }, { status: 401 });
     }
 
-    await prisma.otpCode.update({
-      where: {
-        id: otpRecord.id,
-      },
-      data: {
-        verified: true,
-      },
+    // Single use: only one concurrent request can flip verified.
+    const consumed = await prisma.otpCode.updateMany({
+      where: { id: otpRecord.id, verified: false },
+      data: { verified: true },
     });
 
-    const user = await prisma.user.upsert({
-      where: {
-        phone,
-      },
-      update: {},
-      create: {
-        phone,
-        role: "PLAYER",
-      },
-    });
+    if (consumed.count === 0) {
+      return NextResponse.json({ error: "OTP already used." }, { status: 400 });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { phone } });
+
+    if (existing?.deletedAt) {
+      return NextResponse.json(
+        { error: "This account has been deleted." },
+        { status: 403 },
+      );
+    }
+
+    const user =
+      existing ??
+      (await prisma.user.create({
+        data: { phone, role: "PLAYER" },
+      }));
 
     const hasPassword = !!user.passwordHash;
-
-    const sessionToken = await createSession({
-      userId: user.id,
-      phone: user.phone,
-      role: user.role,
-      hasPassword,
-    });
 
     const response = NextResponse.json({
       success: true,
@@ -117,21 +104,12 @@ export async function POST(request: Request) {
       },
     });
 
-    response.cookies.set("session", sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    await setSessionCookie(response, user);
 
     return response;
   } catch (error) {
-    console.error("Verify OTP error:", error);
+    logError("Verify OTP error:", error);
 
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }

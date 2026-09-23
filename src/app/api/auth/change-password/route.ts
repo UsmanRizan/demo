@@ -1,32 +1,33 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { audit } from "@/lib/audit";
+import { getCurrentUser, revokeAllSessions, setSessionCookie } from "@/lib/auth";
+import { logError } from "@/lib/monitoring";
 import { comparePassword, hashPassword } from "@/lib/password";
+import { prisma } from "@/lib/prisma";
+import { enforceRateLimits } from "@/lib/rate-limit";
+import { changePasswordSchema, parseJson } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
     const currentUser = await getCurrentUser();
 
     if (!currentUser) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const limited = await enforceRateLimits([
+      { key: `change-password:user:${currentUser.id}`, limit: 10, windowSeconds: 900 },
+    ]);
 
-    if (
-      !body.currentPassword ||
-      typeof body.currentPassword !== "string" ||
-      !body.newPassword ||
-      typeof body.newPassword !== "string"
-    ) {
-      return NextResponse.json(
-        { error: "Current password and new password are required" },
-        { status: 400 },
-      );
+    if (limited) {
+      return limited;
+    }
+
+    const parsed = await parseJson(request, changePasswordSchema);
+
+    if (parsed.response) {
+      return parsed.response;
     }
 
     const user = await prisma.user.findUnique({
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     }
 
     const isValid = await comparePassword(
-      body.currentPassword.trim(),
+      parsed.data.currentPassword.trim(),
       user.passwordHash,
     );
 
@@ -52,29 +53,34 @@ export async function POST(request: Request) {
       );
     }
 
-    const newPassword = body.newPassword.trim();
-
-    if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "New password must be at least 8 characters" },
-        { status: 400 },
-      );
-    }
-
-    const passwordHash = await hashPassword(newPassword);
-
     await prisma.user.update({
       where: { id: currentUser.id },
-      data: { passwordHash },
+      data: { passwordHash: await hashPassword(parsed.data.newPassword) },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Change password error:", error);
+    // Sign out every other device, then keep this one signed in.
+    const sessionVersion = await revokeAllSessions(currentUser.id);
 
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 },
-    );
+    await audit({
+      actorId: currentUser.id,
+      action: "auth.change_password",
+      entityType: "User",
+      entityId: currentUser.id,
+      request,
+    });
+
+    const response = NextResponse.json({ success: true });
+
+    await setSessionCookie(response, {
+      ...currentUser,
+      hasPassword: true,
+      sessionVersion,
+    });
+
+    return response;
+  } catch (error) {
+    logError("Change password error:", error);
+
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }

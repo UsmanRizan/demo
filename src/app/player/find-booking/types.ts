@@ -18,6 +18,7 @@ export type Facility = {
   id: string;
   name: string;
   price: number;
+  imageUrl: string | null;
   sports: {
     id: string;
     name: string;

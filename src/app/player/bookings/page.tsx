@@ -22,10 +22,11 @@ export default async function PlayerBookingsPage() {
     include: {
       facility: {
         include: {
-          sports: { select: { name: true } },
-          location: { select: { name: true, address: true, city: true, latitude: true, longitude: true } },
+          sports: { select: { id: true, name: true } },
+          location: { select: { id: true, name: true, address: true, city: true, latitude: true, longitude: true } },
         },
       },
+      review: { select: { rating: true, comment: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -39,7 +40,10 @@ export default async function PlayerBookingsPage() {
     paymentStatus: b.paymentStatus,
     paymentMethod: b.paymentMethod,
     orderId: b.orderId,
+    groupOrderId: b.groupOrderId,
+    cancellationReason: b.cancellationReason,
     createdAt: b.createdAt.toISOString(),
+    review: b.review,
     facility: {
       id: b.facility.id,
       name: b.facility.name,

@@ -1,8 +1,19 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { creditOwnerEarning, findPaymentGroup } from "@/lib/bookings";
+import { debitWallet, InsufficientFundsError } from "@/lib/ledger";
+import { roundMoney } from "@/lib/money";
+import { logError } from "@/lib/monitoring";
+import { notifyBookingConfirmed } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
-import { calculateDynamicPrice } from "@/lib/pricing";
+import { bookingIdSchema, parseJson } from "@/lib/validation";
+
+class PaymentError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message);
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -19,175 +30,98 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const bookingId = body.bookingId;
+    const parsed = await parseJson(request, bookingIdSchema);
 
-    if (!bookingId || typeof bookingId !== "string") {
-      return NextResponse.json(
-        { error: "bookingId is required." },
-        { status: 400 },
-      );
+    if (parsed.response) {
+      return parsed.response;
     }
 
-    // Find the booking
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: {
-        id: true,
-        playerId: true,
-        status: true,
-        paymentStatus: true,
-        totalPrice: true,
-        expiresAt: true,
-        startAt: true,
-        endAt: true,
-        facility: {
-          select: {
-            price: true,
-            location: {
-              select: { ownerId: true },
-            },
-          },
-        },
-      },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const group = await findPaymentGroup(tx, parsed.data.bookingId);
 
-    if (!booking || booking.playerId !== currentUser.id) {
-      return NextResponse.json(
-        { error: "Booking not found." },
-        { status: 404 },
-      );
-    }
-
-    // Only pay for PENDING bookings
-    if (booking.status !== "PENDING" || booking.paymentStatus !== "PENDING") {
-      return NextResponse.json(
-        { error: "This booking cannot be paid for." },
-        { status: 400 },
-      );
-    }
-
-    // Check if booking has expired
-    if (booking.expiresAt && booking.expiresAt <= new Date()) {
-      return NextResponse.json(
-        { error: "This booking has expired." },
-        { status: 400 },
-      );
-    }
-
-    const amount = Number(booking.totalPrice);
-
-    // Get wallet
-    const wallet = await prisma.wallet.findUnique({
-      where: { userId: currentUser.id },
-    });
-
-    if (!wallet) {
-      return NextResponse.json(
-        { error: "No wallet found. Please add funds first." },
-        { status: 400 },
-      );
-    }
-
-    const walletBalance = Number(wallet.balance);
-
-    // Check if wallet has enough balance
-    if (walletBalance < amount) {
-      return NextResponse.json(
-        {
-          error: `Insufficient wallet balance. Required: Rs. ${amount.toFixed(2)}, Available: Rs. ${walletBalance.toFixed(2)}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    // Process wallet payment in a transaction
-    await prisma.$transaction(async (tx) => {
-      // Deduct from wallet
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          balance: {
-            decrement: amount,
-          },
-        },
-      });
-
-      // Record wallet transaction
-      await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount,
-          type: "DEBIT",
-          bookingId: booking.id,
-          note: "Booking payment",
-        },
-      });
-
-      // Update booking status
-      await tx.booking.update({
-        where: { id: booking.id },
-        data: {
-          status: "CONFIRMED",
-          paymentStatus: "PAID",
-          paymentMethod: "wallet",
-          expiresAt: null,
-        },
-      });
-    });      // Credit owner's wallet with earnings (including dynamic pricing)
-      try {
-        const start = new Date(booking.startAt);
-        const end = new Date(booking.endAt);
-        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        const ownerId = booking.facility.location.ownerId;
-
-        // Fetch pricing rules to calculate dynamic owner earnings
-        const pricingRules = await prisma.pricingRule.findMany({
-          where: {
-            location: { ownerId },
-            isActive: true,
-          },
-        });
-
-        const startTimeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
-        const dayOfWeek = start.getDay();
-        const { adjustedPrice: dynamicOwnerPrice } = calculateDynamicPrice(
-          Number(booking.facility.price),
-          startTimeStr,
-          dayOfWeek,
-          pricingRules,
-        );
-
-        const ownerEarnings = hours * dynamicOwnerPrice;
-
-      if (ownerEarnings > 0 && ownerId) {
-        const ownerWallet = await prisma.wallet.upsert({
-          where: { userId: ownerId },
-          create: { userId: ownerId, balance: ownerEarnings },
-          update: { balance: { increment: ownerEarnings } },
-        });
-
-        await prisma.walletTransaction.create({
-          data: {
-            walletId: ownerWallet.id,
-            amount: ownerEarnings,
-            type: "CREDIT",
-            bookingId: booking.id,
-            note: "Booking earning",
-          },
-        });
+      if (group.length === 0 || group.some((b) => b.playerId !== currentUser.id)) {
+        throw new PaymentError("Booking not found.", 404);
       }
-    } catch (walletError) {
-      console.error("Owner wallet credit failed (payment still recorded):", walletError);
-    }
+
+      // Lock the bookings so a concurrent wallet/PayHere payment can't double-charge.
+      const ids = group.map((b) => b.id);
+      await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ANY(${ids}) FOR UPDATE`;
+
+      const bookings = await tx.booking.findMany({
+        where: { id: { in: ids } },
+        orderBy: { startAt: "asc" },
+      });
+
+      const now = new Date();
+
+      for (const booking of bookings) {
+        if (booking.status !== "PENDING" || booking.paymentStatus !== "PENDING") {
+          throw new PaymentError("This booking cannot be paid for.");
+        }
+
+        if (booking.expiresAt && booking.expiresAt <= now) {
+          throw new PaymentError("This booking has expired.");
+        }
+      }
+
+      const amount = roundMoney(
+        bookings.reduce((sum, b) => sum + Number(b.totalPrice), 0),
+      );
+
+      const debit = await debitWallet(tx, {
+        userId: currentUser.id,
+        amount,
+        category: "BOOKING_PAYMENT",
+        bookingId: bookings[0].id,
+        note:
+          bookings.length > 1
+            ? `Booking payment (${bookings.length} weekly sessions)`
+            : "Booking payment",
+      });
+
+      for (const booking of bookings) {
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: "CONFIRMED",
+            paymentStatus: "PAID",
+            paymentMethod: "wallet",
+            expiresAt: null,
+          },
+        });
+
+        await creditOwnerEarning(tx, booking);
+      }
+
+      return {
+        bookingIds: ids,
+        newBalance: Number(debit.balanceAfter ?? 0),
+      };
+    });
+
+    after(() => notifyBookingConfirmed(result.bookingIds));
 
     return NextResponse.json({
       success: true,
-      bookingId: booking.id,
-      newBalance: (walletBalance - amount).toFixed(2),
+      bookingId: parsed.data.bookingId,
+      bookingIds: result.bookingIds,
+      newBalance: result.newBalance.toFixed(2),
     });
   } catch (error) {
-    console.error("Wallet payment error:", error);
+    if (error instanceof PaymentError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    if (error instanceof InsufficientFundsError) {
+      return NextResponse.json(
+        {
+          error: `Insufficient wallet balance. Available: Rs. ${error.available.toFixed(2)}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    logError("Wallet payment error:", error);
 
     return NextResponse.json(
       { error: "Failed to process wallet payment." },

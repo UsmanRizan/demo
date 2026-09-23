@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -46,6 +47,12 @@ function CheckoutContent() {
 
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookingTotal, setBookingTotal] = useState<string | null>(null);
+  const [repeatWeeks, setRepeatWeeks] = useState(() => {
+    const initial = Number(searchParams.get("repeatWeeks") || "1");
+    return Number.isInteger(initial) && initial >= 1 && initial <= 12 ? initial : 1;
+  });
+  const [sessions, setSessions] = useState<{ id: string; startAt: string }[]>([]);
+  const [repeatChanging, setRepeatChanging] = useState(false);
 
   const [walletBalance, setWalletBalance] = useState<string | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
@@ -75,12 +82,13 @@ function CheckoutContent() {
     }
   }
 
-  async function tryPayment() {
+  async function tryPayment(weeks = repeatWeeks): Promise<boolean> {
     const booking = {
       facilityId: searchParams.get("facilityId") || "",
       date: searchParams.get("date") || "",
       startTime: searchParams.get("startTime") || "",
       endTime: searchParams.get("endTime") || "",
+      repeatWeeks: weeks,
     };
 
     if (
@@ -91,7 +99,7 @@ function CheckoutContent() {
     ) {
       setError("Invalid booking information");
       setLoading(false);
-      return;
+      return false;
     }
 
     try {
@@ -107,30 +115,33 @@ function CheckoutContent() {
         if (response.status === 401) {
           setStep("phone");
           setLoading(false);
-          return;
+          return false;
         }
 
         if (response.status === 400 && data.code === "PROFILE_INCOMPLETE") {
           setStep("profile");
           loadProfile();
           setLoading(false);
-          return;
+          return false;
         }
 
         setError(data.error || "Unable to start payment");
         setLoading(false);
-        return;
+        return false;
       }
 
       setBookingId(data.bookingId || null);
       setBookingTotal(
         data.payment?.fields?.amount || data.totalPrice || null
       );
+      setSessions(data.sessions || []);
       setPayment(data.payment);
       setStep("payment-method");
       loadWalletBalance();
+      return true;
     } catch {
       setError("Unable to start payment");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -316,6 +327,47 @@ function CheckoutContent() {
     router.push("/player/find-booking");
   }
 
+  async function changeRepeat(weeks: number) {
+    if (weeks === repeatWeeks) return;
+
+    setRepeatChanging(true);
+    setError("");
+    setWalletError("");
+
+    // Release the current hold(s) before placing the new ones.
+    if (bookingId) {
+      try {
+        await fetch("/api/bookings/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId, reason: "Changed repeat option" }),
+        });
+      } catch {
+        // The old hold expires on its own if this fails.
+      }
+    }
+
+    const previous = repeatWeeks;
+    setRepeatWeeks(weeks);
+    setBookingId(null);
+    setPayment(null);
+
+    try {
+      const ok = await tryPayment(weeks);
+
+      if (!ok) {
+        // Keep the error visible but restore the previous hold so the player
+        // can still pay for what they originally picked.
+        setRepeatWeeks(previous);
+        const message = weeks > 1 ? "Not every week is available for that repeat. " : "";
+        await tryPayment(previous);
+        setError((current) => `${message}${current}`.trim());
+      }
+    } finally {
+      setRepeatChanging(false);
+    }
+  }
+
   async function handleWalletPayment() {
     if (!bookingId) return;
 
@@ -426,12 +478,12 @@ function CheckoutContent() {
         <div className="w-full max-w-md">
           {/* Brand */}
           <div className="mb-8 text-center">
-            <a href="/" className="inline-flex items-center gap-2">
+            <Link href="/" className="inline-flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center bg-black text-lg font-bold text-white">
                 B
               </div>
               <span className="text-2xl font-bold uppercase tracking-tight">BookMyPlay</span>
-            </a>
+            </Link>
           </div>
 
           <div className="border-[3px] border-black bg-white p-6 sm:p-8">
@@ -443,9 +495,45 @@ function CheckoutContent() {
 
             {bookingTotal && (
               <div className="mt-4 border-[2px] border-black bg-white p-4">
-                <p className="text-xs font-bold uppercase text-gray-500">Booking total</p>
+                <p className="text-xs font-bold uppercase text-gray-500">
+                  Booking total{repeatWeeks > 1 ? ` · ${repeatWeeks} weekly sessions` : ""}
+                </p>
                 <p className="mt-0.5 text-2xl font-bold">{formatCurrency(bookingTotal)}</p>
+                {sessions.length > 1 && (
+                  <ul className="mt-2 space-y-0.5 text-xs text-gray-600">
+                    {sessions.map((session) => (
+                      <li key={session.id}>
+                        {new Intl.DateTimeFormat("en-LK", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                          timeZone: "Asia/Colombo",
+                        }).format(new Date(session.startAt))}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
+            )}
+
+            <label className="mt-4 block text-xs font-bold uppercase text-gray-500" htmlFor="repeat-weeks">
+              Repeat weekly
+            </label>
+            <select
+              id="repeat-weeks"
+              value={repeatWeeks}
+              disabled={repeatChanging || walletPaymentLoading}
+              onChange={(e) => changeRepeat(Number(e.target.value))}
+              className="mt-1 w-full border-[2px] border-black bg-white px-3 py-2 text-sm font-bold"
+            >
+              <option value={1}>Just this once</option>
+              {[2, 3, 4, 6, 8, 12].map((weeks) => (
+                <option key={weeks} value={weeks}>
+                  Every week for {weeks} weeks
+                </option>
+              ))}
+            </select>
+            {repeatChanging && (
+              <p className="mt-1 text-xs text-gray-500">Checking availability for every week…</p>
             )}
 
             <div className="mt-5 space-y-3">

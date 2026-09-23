@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -127,12 +128,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand header */}
         <div className="mb-8 text-center">
-          <a href="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center bg-black text-lg font-bold text-white">
               B
             </div>
             <span className="text-2xl font-bold uppercase tracking-tight">BookMyPlay</span>
-          </a>
+          </Link>
         </div>
 
         <div className="border-[3px] border-black bg-white p-6 sm:p-8">
