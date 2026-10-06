@@ -165,6 +165,10 @@ model Booking {
   // Owner's share of totalPrice (price after pricing rules, before platform fee).
   ownerAmount Decimal? @db.Decimal(10, 2)
 
+  // Player pays the owner in cash at the venue. Until the owner marks it
+  // paid, the slot can still be taken by an online (card/wallet) payment.
+  payAtVenue Boolean @default(false)
+
   cancelledAt        DateTime?
   cancelledById      String?
   cancellationReason String?
@@ -178,8 +182,9 @@ model Booking {
   facility Facility @relation(fields: [facilityId], references: [id])
   review   Review?
 
-  // Overlap protection lives in the migration as an exclusion constraint
-  // ("Booking_no_overlap"), which Prisma cannot express in the schema.
+  // Overlap protection lives in the migrations as exclusion constraints
+  // ("Booking_no_overlap" for firm bookings, "Booking_venue_no_overlap" for
+  // pay-at-venue reservations), which Prisma cannot express in the schema.
   @@index([playerId])
   @@index([groupOrderId])
   @@index([facilityId])

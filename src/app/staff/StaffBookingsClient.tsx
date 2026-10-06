@@ -167,7 +167,11 @@ export default function StaffBookingsClient({
             const statusBadge =
               STATUS_BADGE[booking.status] || STATUS_BADGE.PENDING;
             const paymentBadge =
-              PAYMENT_BADGE[booking.paymentStatus] || PAYMENT_BADGE.PENDING;
+              booking.paymentMethod === "venue" && booking.paymentStatus === "PENDING"
+                ? { label: "Pay at venue · unpaid", className: "bg-sky-50 text-sky-700 border-sky-200" }
+                : booking.paymentMethod === "venue" && booking.paymentStatus === "PAID"
+                  ? { label: "Paid at venue", className: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+                  : PAYMENT_BADGE[booking.paymentStatus] || PAYMENT_BADGE.PENDING;
 
             return (
               <div

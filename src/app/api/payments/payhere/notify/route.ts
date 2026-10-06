@@ -1,8 +1,9 @@
 import { after, NextResponse } from "next/server";
 
-import { confirmPaidBookings } from "@/lib/bookings";
+import { confirmPaidBookings, VENUE_BUMP_REASON } from "@/lib/bookings";
+import { creditWallet, netForBooking } from "@/lib/ledger";
 import { logError } from "@/lib/monitoring";
-import { notifyBookingConfirmed } from "@/lib/notifications";
+import { notifyBookingCancelled, notifyBookingConfirmed } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { verifyPayHereNotification } from "@/lib/payhere";
 
@@ -51,6 +52,41 @@ export async function POST(request: Request) {
       return new NextResponse("Booking not found", { status: 404 });
     }
 
+    // The player switched this hold to pay-at-venue, but the card payment
+    // they had started still went through. Keep the venue booking and return
+    // the card money to their wallet (once).
+    if (bookings.every((b) => b.payAtVenue)) {
+      if (statusCode === "2") {
+        const first = bookings[0];
+
+        await prisma.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${first.id} FOR UPDATE`;
+
+          const already = await netForBooking(tx, first.playerId, first.id, ["BOOKING_REFUND"]);
+
+          if (already > 0) {
+            return;
+          }
+
+          await creditWallet(tx, {
+            userId: first.playerId,
+            amount: Number(amount),
+            category: "BOOKING_REFUND",
+            bookingId: first.id,
+            note: "Card payment received for a pay-at-venue booking",
+          });
+        });
+
+        logError("PayHere payment for pay-at-venue booking refunded to wallet", {
+          orderId,
+          paymentId,
+          amount,
+        });
+      }
+
+      return new NextResponse("OK", { status: 200 });
+    }
+
     const expectedAmount = bookings
       .reduce((sum, b) => sum + Number(b.totalPrice), 0)
       .toFixed(2);
@@ -71,10 +107,14 @@ export async function POST(request: Request) {
 
     switch (statusCode) {
       case "2": {
-        const { confirmed } = await confirmPaidBookings(ids, paymentFields);
+        const { confirmed, bumpedVenue } = await confirmPaidBookings(ids, paymentFields);
 
         if (confirmed.length > 0) {
           after(() => notifyBookingConfirmed(confirmed));
+        }
+
+        for (const id of bumpedVenue) {
+          after(() => notifyBookingCancelled(id, "system", 0, VENUE_BUMP_REASON));
         }
 
         break;

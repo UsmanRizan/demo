@@ -70,9 +70,18 @@ const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
   REFUNDED: { label: "Refunded to wallet", className: "bg-blue-50 text-blue-700 border-blue-200" },
 };
 
+const VENUE_PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
+  PENDING: { label: "Pay at venue", className: "bg-sky-50 text-sky-700 border-sky-200" },
+  PAID: { label: "Paid at venue", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+};
+
+function isVenueBooking(booking: Booking): boolean {
+  return booking.paymentMethod === "venue";
+}
+
 function canReview(booking: Booking, now: Date): boolean {
   return (
-    booking.paymentStatus === "PAID" &&
+    (booking.paymentStatus === "PAID" || isVenueBooking(booking)) &&
     (booking.status === "COMPLETED" ||
       (booking.status === "CONFIRMED" && new Date(booking.endAt) <= now))
   );
@@ -230,10 +239,14 @@ export default function BookingsClient({
         <div className="mt-6 space-y-4">
           {filteredBookings.map((booking) => {
             const statusBadge = STATUS_BADGE[booking.status] || STATUS_BADGE.PENDING;
-            const paymentBadge = PAYMENT_BADGE[booking.paymentStatus] || PAYMENT_BADGE.PENDING;
+            const paymentBadge =
+              (isVenueBooking(booking) && VENUE_PAYMENT_BADGE[booking.paymentStatus]) ||
+              PAYMENT_BADGE[booking.paymentStatus] ||
+              PAYMENT_BADGE.PENDING;
             const canCancel = canCancelBooking(booking, now) && cancellingId !== booking.id;
             const showConfirm = cancelConfirmId === booking.id;
-            const isPaidBooking = booking.paymentStatus === "PAID";
+            // Only online payments are refunded to the wallet.
+            const isPaidBooking = booking.paymentStatus === "PAID" && !isVenueBooking(booking);
 
             return (
               <div

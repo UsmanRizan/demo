@@ -59,6 +59,13 @@ function CheckoutContent() {
   const [walletPaymentLoading, setWalletPaymentLoading] = useState(false);
   const [walletError, setWalletError] = useState("");
 
+  const [venueOption, setVenueOption] = useState<{
+    available: boolean;
+    totalPrice: string;
+  } | null>(null);
+  const [venueLoading, setVenueLoading] = useState(false);
+  const [venueError, setVenueError] = useState("");
+
   const [error, setError] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -135,6 +142,8 @@ function CheckoutContent() {
         data.payment?.fields?.amount || data.totalPrice || null
       );
       setSessions(data.sessions || []);
+      setVenueOption(data.payAtVenue ?? null);
+      setVenueError("");
       setPayment(data.payment);
       setStep("payment-method");
       loadWalletBalance();
@@ -397,6 +406,38 @@ function CheckoutContent() {
     }
   }
 
+  async function handleVenuePayment() {
+    if (!bookingId) return;
+
+    setVenueLoading(true);
+    setVenueError("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/payments/venue/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setVenueError(data.error || "Failed to book with pay at venue.");
+        if (data.code === "VENUE_SLOT_TAKEN") {
+          setVenueOption((current) => (current ? { ...current, available: false } : current));
+        }
+        setVenueLoading(false);
+        return;
+      }
+
+      router.push(`/player/payment/success?bookingId=${bookingId}`);
+    } catch {
+      setVenueError("Network error. Please try again.");
+      setVenueLoading(false);
+    }
+  }
+
   function formatCurrency(value: string | number) {
     const num = typeof value === "string" ? Number(value) : value;
     return `Rs. ${num.toLocaleString("en-LK")}`;
@@ -521,7 +562,7 @@ function CheckoutContent() {
             <select
               id="repeat-weeks"
               value={repeatWeeks}
-              disabled={repeatChanging || walletPaymentLoading}
+              disabled={repeatChanging || walletPaymentLoading || venueLoading}
               onChange={(e) => changeRepeat(Number(e.target.value))}
               className="mt-1 w-full border-[2px] border-black bg-white px-3 py-2 text-sm font-bold"
             >
@@ -540,7 +581,7 @@ function CheckoutContent() {
               {/* Wallet Option */}
               <button
                 type="button"
-                disabled={!canPayWithWallet || walletPaymentLoading}
+                disabled={!canPayWithWallet || walletPaymentLoading || venueLoading}
                 onClick={handleWalletPayment}
                 className={`w-full border-[2px] p-4 text-left transition ${
                   canPayWithWallet
@@ -572,7 +613,7 @@ function CheckoutContent() {
               {/* Card / PayHere Option */}
               <button
                 type="button"
-                disabled={walletPaymentLoading}
+                disabled={walletPaymentLoading || venueLoading}
                 onClick={() => setStep("payment")}
                 className="w-full border-[2px] border-black p-4 text-left transition hover:bg-gray-100"
               >
@@ -588,7 +629,48 @@ function CheckoutContent() {
                   </div>
                 </div>
               </button>
+
+              {/* Pay at venue option */}
+              {venueOption && (
+                <button
+                  type="button"
+                  disabled={!venueOption.available || walletPaymentLoading || venueLoading}
+                  onClick={handleVenuePayment}
+                  className={`w-full border-[2px] p-4 text-left transition ${
+                    venueOption.available
+                      ? "border-black hover:bg-gray-100"
+                      : "cursor-not-allowed border-gray-200 bg-gray-100 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold uppercase">
+                        {venueLoading ? "Booking..." : "Pay at Venue"}
+                      </p>
+                      <p className="mt-0.5 text-sm text-gray-500">
+                        Pay {formatCurrency(venueOption.totalPrice)} in cash at the venue
+                      </p>
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-white text-lg">
+                      🏟️
+                    </div>
+                  </div>
+                  {venueOption.available ? (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Until you pay, another player can take this slot by paying online.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs font-bold uppercase text-red-600">
+                      This slot already has a pay-at-venue reservation. Pay online to book it.
+                    </p>
+                  )}
+                </button>
+              )}
             </div>
+
+            {venueError && (
+              <p className="mt-3 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">{venueError}</p>
+            )}
 
             {walletError && (
               <p className="mt-3 border-[2px] border-red-600 bg-white p-3 text-sm text-red-600">{walletError}</p>

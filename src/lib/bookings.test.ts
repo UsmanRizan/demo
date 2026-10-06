@@ -6,6 +6,7 @@ import {
   colomboDateTime,
   dayOfWeekForDate,
   isOverlapViolation,
+  isVenueOverlapViolation,
   quoteSlot,
   weeklySlots,
 } from "@/lib/bookings";
@@ -154,6 +155,14 @@ describe("isOverlapViolation", () => {
     expect(isOverlapViolation(new Error('violates exclusion constraint "Booking_no_overlap"'))).toBe(true);
     expect(isOverlapViolation({ cause: { code: "23P01" } })).toBe(true);
     expect(isOverlapViolation(Object.assign(new Error("x"), { meta: { code: "23P01" } }))).toBe(true);
+  });
+
+  it("tells the pay-at-venue constraint apart", () => {
+    const venue = new Error('violates exclusion constraint "Booking_venue_no_overlap"');
+
+    expect(isOverlapViolation(venue)).toBe(true);
+    expect(isVenueOverlapViolation(venue)).toBe(true);
+    expect(isVenueOverlapViolation(new Error('violates exclusion constraint "Booking_no_overlap"'))).toBe(false);
   });
 
   it("ignores unrelated errors", () => {

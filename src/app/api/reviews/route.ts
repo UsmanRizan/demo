@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         playerId: true,
         status: true,
         paymentStatus: true,
+        payAtVenue: true,
         endAt: true,
         facilityId: true,
         facility: { select: { locationId: true } },
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     const played =
-      booking.paymentStatus === "PAID" &&
+      (booking.paymentStatus === "PAID" || booking.payAtVenue) &&
       (booking.status === "COMPLETED" ||
         (booking.status === "CONFIRMED" && booking.endAt <= new Date()));
 

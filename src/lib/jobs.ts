@@ -16,7 +16,12 @@ export async function completeFinishedBookings(): Promise<number> {
   const cutoff = new Date(Date.now() - COMPLETE_AFTER_MINUTES * 60_000);
 
   const result = await prisma.booking.updateMany({
-    where: { status: "CONFIRMED", paymentStatus: "PAID", endAt: { lte: cutoff } },
+    where: {
+      status: "CONFIRMED",
+      // Pay-at-venue bookings complete even if the owner hasn't recorded the cash yet.
+      OR: [{ paymentStatus: "PAID" }, { payAtVenue: true, paymentStatus: "PENDING" }],
+      endAt: { lte: cutoff },
+    },
     data: { status: "COMPLETED" },
   });
 

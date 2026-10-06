@@ -1,25 +1,23 @@
 import { after, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
-import {
-  bumpVenueBookings,
-  creditOwnerEarning,
-  findPaymentGroup,
-  VENUE_BUMP_REASON,
-} from "@/lib/bookings";
-import { debitWallet, InsufficientFundsError } from "@/lib/ledger";
-import { roundMoney } from "@/lib/money";
+import { findPaymentGroup, isVenueOverlapViolation, ownerAmountOf } from "@/lib/bookings";
 import { logError } from "@/lib/monitoring";
-import { notifyBookingCancelled, notifyBookingConfirmed } from "@/lib/notifications";
+import { notifyBookingConfirmed } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { bookingIdSchema, parseJson } from "@/lib/validation";
 
 class PaymentError extends Error {
-  constructor(message: string, public status = 400) {
+  constructor(message: string, public status = 400, public code?: string) {
     super(message);
   }
 }
 
+/**
+ * Turn a payment hold into a pay-at-venue booking. The player pays the owner's
+ * price in cash at the venue, so nothing goes through the platform wallets.
+ * Until the owner marks it paid, an online payment can take the slot over.
+ */
 export async function POST(request: Request) {
   try {
     const currentUser = await getCurrentUser();
@@ -48,7 +46,7 @@ export async function POST(request: Request) {
         throw new PaymentError("Booking not found.", 404);
       }
 
-      // Lock the bookings so a concurrent wallet/PayHere payment can't double-charge.
+      // Lock the bookings so a concurrent wallet/PayHere payment can't race this.
       const ids = group.map((b) => b.id);
       await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ANY(${ids}) FOR UPDATE`;
 
@@ -61,7 +59,7 @@ export async function POST(request: Request) {
 
       for (const booking of bookings) {
         if (booking.status !== "PENDING" || booking.paymentStatus !== "PENDING") {
-          throw new PaymentError("This booking cannot be paid for.");
+          throw new PaymentError("This booking cannot be changed to pay at venue.");
         }
 
         if (booking.expiresAt && booking.expiresAt <= now) {
@@ -69,77 +67,53 @@ export async function POST(request: Request) {
         }
       }
 
-      const amount = roundMoney(
-        bookings.reduce((sum, b) => sum + Number(b.totalPrice), 0),
-      );
-
-      const debit = await debitWallet(tx, {
-        userId: currentUser.id,
-        amount,
-        category: "BOOKING_PAYMENT",
-        bookingId: bookings[0].id,
-        note:
-          bookings.length > 1
-            ? `Booking payment (${bookings.length} weekly sessions)`
-            : "Booking payment",
-      });
-
-      const bumpedVenue: string[] = [];
-
       for (const booking of bookings) {
-        // Online payments take precedence over unpaid pay-at-venue reservations.
-        bumpedVenue.push(...(await bumpVenueBookings(tx, booking)));
-
         await tx.booking.update({
           where: { id: booking.id },
           data: {
             status: "CONFIRMED",
-            paymentStatus: "PAID",
-            paymentMethod: "wallet",
+            payAtVenue: true,
+            paymentMethod: "venue",
+            // Cash at the venue is the owner's price; no platform fee.
+            totalPrice: ownerAmountOf(booking),
             expiresAt: null,
           },
         });
-
-        await creditOwnerEarning(tx, booking);
       }
 
-      return {
-        bookingIds: ids,
-        bumpedVenue,
-        newBalance: Number(debit.balanceAfter ?? 0),
-      };
+      return { bookingIds: ids };
     });
 
     after(() => notifyBookingConfirmed(result.bookingIds));
-
-    for (const id of result.bumpedVenue) {
-      after(() => notifyBookingCancelled(id, "system", 0, VENUE_BUMP_REASON));
-    }
 
     return NextResponse.json({
       success: true,
       bookingId: parsed.data.bookingId,
       bookingIds: result.bookingIds,
-      newBalance: result.newBalance.toFixed(2),
     });
   } catch (error) {
-    if (error instanceof PaymentError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-
-    if (error instanceof InsufficientFundsError) {
+    if (isVenueOverlapViolation(error)) {
       return NextResponse.json(
         {
-          error: `Insufficient wallet balance. Available: Rs. ${error.available.toFixed(2)}`,
+          error:
+            "This slot already has a pay-at-venue reservation. Pay by card or wallet to book it.",
+          code: "VENUE_SLOT_TAKEN",
         },
-        { status: 400 },
+        { status: 409 },
       );
     }
 
-    logError("Wallet payment error:", error);
+    if (error instanceof PaymentError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
+
+    logError("Pay at venue booking error:", error);
 
     return NextResponse.json(
-      { error: "Failed to process wallet payment." },
+      { error: "Failed to book with pay at venue." },
       { status: 500 },
     );
   }

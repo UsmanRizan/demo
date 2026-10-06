@@ -9,7 +9,7 @@ import EarningsClient from "./EarningsClient";
 export default async function OwnerEarningsPage() {
   const user = await requireOwner();
 
-  const [rawBookings, wallet, rawWithdrawals] = await Promise.all([
+  const [rawBookings, wallet, rawWithdrawals, venueCash] = await Promise.all([
     prisma.booking.findMany({
       where: {
         facility: {
@@ -18,6 +18,8 @@ export default async function OwnerEarningsPage() {
           },
         },
         paymentStatus: "PAID",
+        // Cash collected at the venue never enters the wallet; shown separately.
+        payAtVenue: false,
         OR: [
           { status: "COMPLETED" },
           { status: "CONFIRMED", endAt: { lt: new Date() } },
@@ -49,6 +51,16 @@ export default async function OwnerEarningsPage() {
     prisma.withdrawalRequest.findMany({
       where: { ownerId: user.id },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.booking.aggregate({
+      where: {
+        facility: { location: { ownerId: user.id } },
+        payAtVenue: true,
+        paymentStatus: "PAID",
+        status: { in: ["CONFIRMED", "COMPLETED"] },
+      },
+      _sum: { totalPrice: true },
+      _count: true,
     }),
   ]);
 
@@ -106,7 +118,15 @@ export default async function OwnerEarningsPage() {
           </p>
         </div>
 
-        <EarningsClient bookings={bookings} wallet={walletData} withdrawals={withdrawals} />
+        <EarningsClient
+          bookings={bookings}
+          wallet={walletData}
+          withdrawals={withdrawals}
+          venueCash={{
+            total: (venueCash._sum.totalPrice ?? 0).toString(),
+            count: venueCash._count,
+          }}
+        />
       </div>
 
       <Footer />

@@ -50,6 +50,8 @@ type EarningsClientProps = {
     transactions: WalletTransaction[];
   } | null;
   withdrawals: WithdrawalRequest[];
+  // Pay-at-venue cash the owner collected directly (not withdrawable).
+  venueCash?: { total: string; count: number };
 };
 
 type Period = "all" | "thisMonth" | "lastMonth" | "thisYear";
@@ -114,7 +116,7 @@ function filterByPeriod(bookings: Booking[], period: Period): Booking[] {
   });
 }
 
-export default function EarningsClient({ bookings, wallet: initialWallet, withdrawals: initialWithdrawals }: EarningsClientProps) {
+export default function EarningsClient({ bookings, wallet: initialWallet, withdrawals: initialWithdrawals, venueCash }: EarningsClientProps) {
   const [activePeriod, setActivePeriod] = useState<Period>("all");
   const [wallet, setWallet] = useState(initialWallet);
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
@@ -246,6 +248,17 @@ export default function EarningsClient({ bookings, wallet: initialWallet, withdr
           </div>
         </div>
       </div>
+
+      {venueCash && venueCash.count > 0 && (
+        <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          <span className="font-semibold text-slate-900">
+            {formatCurrencyCompact(Number(venueCash.total))}
+          </span>{" "}
+          collected in cash at the venue ({venueCash.count} pay-at-venue booking
+          {venueCash.count === 1 ? "" : "s"}). You already hold this money, so it is not
+          included in your wallet balance and cannot be withdrawn.
+        </p>
+      )}
 
       {/* Export + Withdraw */}
       <div className="flex flex-wrap justify-end gap-3">

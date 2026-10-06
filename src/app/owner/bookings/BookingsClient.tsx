@@ -78,6 +78,12 @@ const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
   CHARGEBACK: { label: "Chargeback", className: "bg-red-50 text-red-600 border-red-200" },
 };
 
+// Pay-at-venue bookings: the player pays the owner in cash, outside the wallet.
+const VENUE_PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
+  PENDING: { label: "Pay at venue · unpaid", className: "bg-sky-50 text-sky-700 border-sky-200" },
+  PAID: { label: "Paid at venue", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+};
+
 function formatCurrency(value: string | number) {
   const num = typeof value === "string" ? Number(value) : value;
   return `Rs. ${num.toLocaleString("en-LK")}`;
@@ -250,7 +256,15 @@ export default function BookingsClient({
         <div className="mt-6 space-y-4">
           {filteredBookings.map((booking) => {
             const statusBadge = STATUS_BADGE[booking.status] || STATUS_BADGE.PENDING;
-            const paymentBadge = PAYMENT_BADGE[booking.paymentStatus] || PAYMENT_BADGE.PENDING;
+            const isVenue = booking.paymentMethod === "venue";
+            const paymentBadge =
+              (isVenue && VENUE_PAYMENT_BADGE[booking.paymentStatus]) ||
+              PAYMENT_BADGE[booking.paymentStatus] ||
+              PAYMENT_BADGE.PENDING;
+            const canMarkPaid =
+              isVenue &&
+              booking.paymentStatus === "PENDING" &&
+              (booking.status === "CONFIRMED" || booking.status === "COMPLETED");
             const isLoading = actionLoading === booking.id;
             const showConfirm = actionConfirmId === booking.id;
             const canConfirm = booking.status === "PENDING" && booking.paymentStatus === "PAID";
@@ -338,6 +352,18 @@ export default function BookingsClient({
                     <p className="text-2xl font-bold">
                       {getOwnerEarnings(booking)}
                     </p>
+
+                    {canMarkPaid && !showConfirm && (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => handleAction(booking.id, "mark_paid")}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                        title="Record that the player paid in cash at the venue"
+                      >
+                        {isLoading ? "Saving..." : "Cash received"}
+                      </button>
+                    )}
 
                     {canConfirm && !showConfirm && (
                       <button

@@ -44,6 +44,8 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
   }
 
   const paid = booking.paymentStatus === "PAID";
+  const atVenue =
+    booking.payAtVenue && booking.status === "CONFIRMED" && booking.paymentStatus === "PENDING";
 
   const startStr = booking.startAt.toLocaleString("en-LK", {
     dateStyle: "medium",
@@ -63,7 +65,20 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
       <div className="flex items-center justify-center px-4 py-16 sm:px-6">
         <div className="w-full max-w-lg">
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg shadow-slate-200/50 sm:p-10">
-            {paid ? (
+            {atVenue ? (
+              <>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+                  <svg className="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <h1 className="mt-5 text-2xl font-bold text-slate-900">Booking reserved</h1>
+                <p className="mt-2 text-slate-500">
+                  Pay at the venue when you arrive. Until you pay, another player can
+                  take this slot by paying online &ndash; we&apos;ll let you know if that happens.
+                </p>
+              </>
+            ) : paid ? (
               <>
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
                   <svg className="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -102,7 +117,7 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
               </div>
 
               <div className="mt-3 border-t border-slate-200 pt-3">
-                <p className="text-xs text-slate-400">Amount paid</p>
+                <p className="text-xs text-slate-400">{atVenue ? "Pay at venue" : "Amount paid"}</p>
                 <p className="text-xl font-bold text-slate-900">
                   Rs. {Number(booking.totalPrice).toLocaleString("en-LK")}
                 </p>

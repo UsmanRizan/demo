@@ -10,13 +10,17 @@ import { createLocalDateTime } from "@/lib/utils";
  * Bookable hourly slots for facilities on a date. Shared by court search and
  * the public venue page so both apply the same rules as booking creation:
  * Colombo time, opening hours, blocked dates, pricing rules, and both paid
- * bookings and unexpired payment holds count as taken.
+ * bookings and unexpired payment holds count as taken. Unpaid pay-at-venue
+ * reservations do not: an online payment can take them over.
  */
 
 export type PublicSlot = {
   startTime: string;
   endTime: string;
   available: boolean;
+  // An unpaid pay-at-venue reservation holds this slot. It can still be
+  // booked with an online payment, but not with another pay-at-venue booking.
+  venueReserved: boolean;
   pricePerHour: number;
   surgePercentage: number;
 };
@@ -55,6 +59,7 @@ export function buildSlots({
   basePrice,
   rules,
   taken,
+  venueReserved = [],
   blocked,
   now = new Date(),
   range = [0, 24 * 60],
@@ -64,6 +69,7 @@ export function buildSlots({
   basePrice: number;
   rules: PricingRuleInput[];
   taken: { startAt: Date; endAt: Date }[];
+  venueReserved?: { startAt: Date; endAt: Date }[];
   blocked: boolean;
   now?: Date;
   range?: [number, number];
@@ -85,6 +91,9 @@ export function buildSlots({
     const slotEnd = colomboDateTime(date, endTime);
 
     const isTaken = taken.some((b) => b.startAt < slotEnd && b.endAt > slotStart);
+    const isVenueReserved = venueReserved.some(
+      (b) => b.startAt < slotEnd && b.endAt > slotStart,
+    );
     const isPast = slotStart.getTime() <= now.getTime();
 
     const { adjustedPrice, surgePercentage } = calculateDynamicPrice(
@@ -98,6 +107,7 @@ export function buildSlots({
       startTime,
       endTime,
       available: !isTaken && !isPast && !blocked,
+      venueReserved: isVenueReserved,
       pricePerHour: calculatePlayerPrice(adjustedPrice),
       surgePercentage,
     });
@@ -125,6 +135,11 @@ export type FacilityWithSlots = {
   slots: PublicSlot[];
   avgSurge: number;
 };
+
+/** Unpaid pay-at-venue bookings can be overridden by an online payment. */
+function isSoftVenueBooking(booking: { payAtVenue: boolean; paymentStatus: string }) {
+  return booking.payAtVenue && booking.paymentStatus === "PENDING";
+}
 
 /** Load facilities matching `where` and compute their slots for `date`. */
 export async function getFacilitiesWithSlots({
@@ -196,7 +211,12 @@ export async function getFacilitiesWithSlots({
             { status: "PENDING", paymentStatus: "PENDING", expiresAt: { gt: now } },
           ],
         },
-        select: { startAt: true, endAt: true },
+        select: {
+          startAt: true,
+          endAt: true,
+          payAtVenue: true,
+          paymentStatus: true,
+        },
       },
     },
   });
@@ -210,7 +230,8 @@ export async function getFacilitiesWithSlots({
       opening: availabilities[0] ?? null,
       basePrice: Number(facility.price),
       rules: pricingRules,
-      taken: facility.bookings,
+      taken: facility.bookings.filter((b) => !isSoftVenueBooking(b)),
+      venueReserved: facility.bookings.filter(isSoftVenueBooking),
       blocked,
       now,
       range,

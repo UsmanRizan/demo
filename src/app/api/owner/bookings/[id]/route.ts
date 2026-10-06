@@ -2,7 +2,7 @@ import { after, NextResponse } from "next/server";
 
 import { audit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
-import { BookingError, cancelBooking } from "@/lib/bookings";
+import { BookingError, cancelBooking, isOverlapViolation } from "@/lib/bookings";
 import { logError } from "@/lib/monitoring";
 import { notifyBookingCancelled } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
@@ -73,6 +73,39 @@ export async function PATCH(
         where: { id: booking.id },
         data: { status: "CONFIRMED" },
       });
+    } else if (action === "mark_paid") {
+      // Cash collected at the venue. The owner keeps the money directly, so
+      // nothing is credited to their wallet (it can't be withdrawn). A paid
+      // venue booking can no longer be taken over by an online payment.
+      if (
+        !booking.payAtVenue ||
+        booking.paymentStatus !== "PENDING" ||
+        (booking.status !== "CONFIRMED" && booking.status !== "COMPLETED")
+      ) {
+        return NextResponse.json(
+          { error: "Only unpaid pay-at-venue bookings can be marked as paid." },
+          { status: 400 },
+        );
+      }
+
+      try {
+        await prisma.booking.update({
+          where: { id: booking.id, paymentStatus: "PENDING" },
+          data: { paymentStatus: "PAID" },
+        });
+      } catch (error) {
+        if (isOverlapViolation(error)) {
+          return NextResponse.json(
+            {
+              error:
+                "Another player is paying online for this slot right now. Try again in a few minutes.",
+            },
+            { status: 409 },
+          );
+        }
+
+        throw error;
+      }
     } else {
       if (booking.status !== "CONFIRMED" || booking.endAt > new Date()) {
         return NextResponse.json(
@@ -119,6 +152,7 @@ export async function PATCH(
       status: updated.status,
       paymentStatus: updated.paymentStatus,
       paymentMethod: updated.paymentMethod,
+      payAtVenue: updated.payAtVenue,
       orderId: updated.orderId,
       createdAt: updated.createdAt.toISOString(),
       player: updated.player,

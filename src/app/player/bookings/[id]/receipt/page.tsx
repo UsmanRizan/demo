@@ -171,7 +171,11 @@ export default async function ReceiptPage({ params }: PageProps) {
 
         <footer className="mt-8 border-t-[2px] border-black pt-4 text-xs text-gray-500">
           <p>
-            Payment method: {booking.paymentMethod === "wallet" ? "BookMyPlay wallet" : booking.paymentMethod ?? "Card (PayHere)"}
+            Payment method: {booking.payAtVenue
+              ? "Paid at venue"
+              : booking.paymentMethod === "wallet"
+                ? "BookMyPlay wallet"
+                : booking.paymentMethod ?? "Card (PayHere)"}
             {booking.paymentId && ` · Transaction ${booking.paymentId}`}
           </p>
           <p className="mt-1">Booked {colombo(booking.createdAt, "datetime")} (Asia/Colombo)</p>

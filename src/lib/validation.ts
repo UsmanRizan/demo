@@ -125,8 +125,8 @@ export const cancelBookingSchema = z.object({
 });
 
 export const ownerBookingActionSchema = z.object({
-  action: z.enum(["confirm", "complete", "cancel"], {
-    error: "Invalid action. Use confirm, complete, or cancel.",
+  action: z.enum(["confirm", "complete", "cancel", "mark_paid"], {
+    error: "Invalid action. Use confirm, complete, cancel, or mark_paid.",
   }),
   reason: z.string().trim().max(300).optional(),
 });

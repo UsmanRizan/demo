@@ -25,11 +25,8 @@ export class BookingError extends Error {
   }
 }
 
-/**
- * True when an error comes from the Booking_no_overlap exclusion constraint
- * (Postgres SQLSTATE 23P01), however the driver adapter wrapped it.
- */
-export function isOverlapViolation(error: unknown): boolean {
+function errorTexts(error: unknown): string[] {
+  const texts: string[] = [];
   const seen = new Set<unknown>();
   let current: unknown = error;
 
@@ -37,11 +34,7 @@ export function isOverlapViolation(error: unknown): boolean {
     seen.add(current);
 
     try {
-      const text = `${(current as Error).message ?? ""} ${JSON.stringify(current)}`;
-
-      if (text.includes("23P01") || text.includes("Booking_no_overlap")) {
-        return true;
-      }
+      texts.push(`${(current as Error).message ?? ""} ${JSON.stringify(current)}`);
     } catch {
       // Circular structures: fall through to cause.
     }
@@ -49,7 +42,25 @@ export function isOverlapViolation(error: unknown): boolean {
     current = (current as { cause?: unknown }).cause;
   }
 
-  return false;
+  return texts;
+}
+
+/**
+ * True when an error comes from one of the booking overlap exclusion
+ * constraints (Postgres SQLSTATE 23P01), however the driver adapter wrapped it.
+ */
+export function isOverlapViolation(error: unknown): boolean {
+  return errorTexts(error).some(
+    (text) =>
+      text.includes("23P01") ||
+      text.includes("Booking_no_overlap") ||
+      text.includes("Booking_venue_no_overlap"),
+  );
+}
+
+/** True when the overlap came from the one-pay-at-venue-per-slot constraint. */
+export function isVenueOverlapViolation(error: unknown): boolean {
+  return errorTexts(error).some((text) => text.includes("Booking_venue_no_overlap"));
 }
 
 // ---------------------------------------------------------------------------
@@ -399,6 +410,44 @@ export async function findPaymentGroup(tx: Tx, bookingId: string) {
   });
 }
 
+/**
+ * Whether the given holds can be switched to pay-at-venue (no other
+ * pay-at-venue reservation overlaps any of them), and what the player would
+ * pay at the venue (the owner's price, without the platform fee).
+ */
+export async function venueOptionForBookings(bookingIds: string[]) {
+  const bookings = await prisma.booking.findMany({
+    where: { id: { in: bookingIds } },
+    select: {
+      id: true,
+      facilityId: true,
+      startAt: true,
+      endAt: true,
+      totalPrice: true,
+      ownerAmount: true,
+    },
+  });
+
+  const conflict = await prisma.booking.findFirst({
+    where: {
+      id: { notIn: bookingIds },
+      payAtVenue: true,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      OR: bookings.map((b) => ({
+        facilityId: b.facilityId,
+        startAt: { lt: b.endAt },
+        endAt: { gt: b.startAt },
+      })),
+    },
+    select: { id: true },
+  });
+
+  return {
+    available: bookings.length > 0 && !conflict,
+    totalPrice: roundMoney(bookings.reduce((sum, b) => sum + ownerAmountOf(b), 0)),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Settlement
 // ---------------------------------------------------------------------------
@@ -412,7 +461,7 @@ async function ownerIdForBooking(tx: Tx, bookingId: string) {
   return booking.facility.location.ownerId;
 }
 
-function ownerAmountOf(booking: { ownerAmount: unknown; totalPrice: unknown }) {
+export function ownerAmountOf(booking: { ownerAmount: unknown; totalPrice: unknown }) {
   return booking.ownerAmount !== null && booking.ownerAmount !== undefined
     ? Number(booking.ownerAmount)
     : ownerShareFromTotal(Number(booking.totalPrice));
@@ -447,6 +496,47 @@ export async function creditOwnerEarning(
 }
 
 /**
+ * Cancel unpaid pay-at-venue reservations that overlap a booking which is
+ * being paid online. Returns the ids that were cancelled so the caller can
+ * notify those players after the transaction commits.
+ */
+export const VENUE_BUMP_REASON = "Another player booked this slot with online payment";
+
+export async function bumpVenueBookings(
+  tx: Tx,
+  booking: { id: string; facilityId: string; startAt: Date; endAt: Date },
+): Promise<string[]> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Booking"
+    WHERE "facilityId" = ${booking.facilityId}
+      AND id <> ${booking.id}
+      AND "payAtVenue" = true
+      AND "paymentStatus" = 'PENDING'
+      AND status IN ('PENDING', 'CONFIRMED')
+      AND "startAt" < ${booking.endAt}
+      AND "endAt" > ${booking.startAt}
+    FOR UPDATE`;
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const ids = rows.map((r) => r.id);
+
+  await tx.booking.updateMany({
+    where: { id: { in: ids } },
+    data: {
+      status: "CANCELLED",
+      paymentStatus: "CANCELLED",
+      cancelledAt: new Date(),
+      cancellationReason: VENUE_BUMP_REASON,
+    },
+  });
+
+  return ids;
+}
+
+/**
  * Mark a set of bookings as paid and credit owners. Returns the ids that were
  * newly confirmed (already-paid bookings are skipped, so replays are safe).
  *
@@ -457,9 +547,10 @@ export async function creditOwnerEarning(
 export async function confirmPaidBookings(
   bookingIds: string[],
   payment: { paymentId?: string | null; paymentMethod?: string | null },
-): Promise<{ confirmed: string[]; refundedToWallet: string[] }> {
+): Promise<{ confirmed: string[]; refundedToWallet: string[]; bumpedVenue: string[] }> {
   const confirmed: string[] = [];
   const refundedToWallet: string[] = [];
+  const bumpedVenue: string[] = [];
 
   for (const id of bookingIds) {
     try {
@@ -477,6 +568,9 @@ export async function confirmPaidBookings(
           return;
         }
 
+        // Online payments take precedence over unpaid pay-at-venue reservations.
+        const bumped = await bumpVenueBookings(tx, booking);
+
         await tx.booking.update({
           where: { id },
           data: {
@@ -493,6 +587,7 @@ export async function confirmPaidBookings(
 
         await creditOwnerEarning(tx, booking);
         confirmed.push(id);
+        bumpedVenue.push(...bumped);
       });
     } catch (error) {
       if (!isOverlapViolation(error)) {
@@ -532,7 +627,7 @@ export async function confirmPaidBookings(
     }
   }
 
-  return { confirmed, refundedToWallet };
+  return { confirmed, refundedToWallet, bumpedVenue };
 }
 
 // ---------------------------------------------------------------------------
@@ -567,13 +662,15 @@ async function cancelOneInTx(
     return null;
   }
 
-  const wasPaid = booking.paymentStatus === "PAID";
+  // Pay-at-venue money was collected by the owner in person, so the platform
+  // never refunds it or touches the owner's wallet.
+  const wasPaid = booking.paymentStatus === "PAID" && !booking.payAtVenue;
 
   await tx.booking.update({
     where: { id: booking.id },
     data: {
       status: "CANCELLED",
-      paymentStatus: wasPaid ? "REFUNDED" : "CANCELLED",
+      paymentStatus: wasPaid ? "REFUNDED" : booking.paymentStatus === "PAID" ? "PAID" : "CANCELLED",
       expiresAt: null,
       cancelledAt: new Date(),
       cancelledById: actor.userId ?? null,

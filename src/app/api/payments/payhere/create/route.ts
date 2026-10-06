@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
-import { BookingError, createBookingHolds } from "@/lib/bookings";
+import { BookingError, createBookingHolds, venueOptionForBookings } from "@/lib/bookings";
 import { logError } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
 import { buildPayHerePayment } from "@/lib/payhere-helpers";
@@ -125,6 +125,8 @@ export async function POST(request: Request) {
       facility: holds.facility,
     });
 
+    const venueOption = await venueOptionForBookings(holds.bookings.map((b) => b.id));
+
     return NextResponse.json({
       success: true,
       bookingId: firstBooking.id,
@@ -137,6 +139,10 @@ export async function POST(request: Request) {
         totalPrice: b.totalPrice.toFixed(2),
       })),
       expiresAt: holds.expiresAt,
+      payAtVenue: {
+        available: venueOption.available,
+        totalPrice: venueOption.totalPrice.toFixed(2),
+      },
       payment,
     });
   } catch (error) {

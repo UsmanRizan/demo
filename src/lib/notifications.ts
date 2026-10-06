@@ -178,11 +178,15 @@ export async function notifyBookingConfirmed(bookingIds: string[]): Promise<void
         ? formatSlot(first.startAt, first.endAt)
         : `${bookings.length} weekly sessions from ${formatSlot(first.startAt, first.endAt)}`;
     const appUrl = process.env.APP_URL ?? "";
+    const atVenue = first.payAtVenue && first.paymentStatus !== "PAID";
+    const paidText = atVenue
+      ? `Pay ${formatLkr(total)} at the venue. An online booking can take this slot until you pay`
+      : `Paid ${formatLkr(total)}`;
 
     await notifyUser(first.playerId, {
       type: "BOOKING_CONFIRMED",
       bookingId: first.id,
-      sms: `${APP_NAME}: Booking confirmed - ${place}, ${when}. Paid ${formatLkr(total)}. Ref ${first.orderId ?? first.id}`,
+      sms: `${APP_NAME}: Booking confirmed - ${place}, ${when}. ${paidText}. Ref ${first.orderId ?? first.id}`,
       email: {
         subject: `Booking confirmed: ${place}`,
         text: [
@@ -190,7 +194,9 @@ export async function notifyBookingConfirmed(bookingIds: string[]): Promise<void
           ``,
           `Where: ${place}`,
           `When: ${when}`,
-          `Total paid: ${formatLkr(total)}`,
+          atVenue
+            ? `Pay at venue: ${formatLkr(total)} (an online booking can take this slot until you pay)`
+            : `Total paid: ${formatLkr(total)}`,
           `Reference: ${first.orderId ?? first.id}`,
           ``,
           `Receipt: ${appUrl}/player/bookings/${first.id}/receipt`,
@@ -201,7 +207,7 @@ export async function notifyBookingConfirmed(bookingIds: string[]): Promise<void
     await notifyUser(first.facility.location.ownerId, {
       type: "OWNER_NEW_BOOKING",
       bookingId: first.id,
-      sms: `${APP_NAME}: New booking - ${place}, ${when}.`,
+      sms: `${APP_NAME}: New booking - ${place}, ${when}.${atVenue ? ` Pay at venue: collect ${formatLkr(total)}.` : ""}`,
     });
   } catch (error) {
     logError("notifyBookingConfirmed failed:", error, { bookingIds });
@@ -228,13 +234,15 @@ export async function notifyBookingCancelled(
     const reasonText = reason ? ` Reason: ${reason}.` : "";
 
     if (cancelledBy !== "player") {
+      const byText = cancelledBy === "owner" ? " by the venue" : "";
+
       await notifyUser(booking.playerId, {
         type: "BOOKING_CANCELLED",
         bookingId,
-        sms: `${APP_NAME}: Your booking at ${place} on ${when} was cancelled by the venue.${reasonText}${refundText}`,
+        sms: `${APP_NAME}: Your booking at ${place} on ${when} was cancelled${byText}.${reasonText}${refundText}`,
         email: {
           subject: `Booking cancelled: ${place}`,
-          text: `Your booking at ${place} on ${when} was cancelled by the venue.${reasonText}${refundText}`,
+          text: `Your booking at ${place} on ${when} was cancelled${byText}.${reasonText}${refundText}`,
         },
       });
     } else if (refundAmount > 0) {

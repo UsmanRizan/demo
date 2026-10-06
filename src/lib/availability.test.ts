@@ -55,6 +55,17 @@ describe("buildSlots", () => {
     expect(byStart["12:00"]).toBe(true);
   });
 
+  it("keeps pay-at-venue reservations bookable but flags them", () => {
+    const slots = buildSlots({
+      ...base,
+      venueReserved: [{ startAt: colomboDateTime(DATE, "10:00"), endAt: colomboDateTime(DATE, "11:00") }],
+    });
+    const at = (t: string) => slots.find((s) => s.startTime === t);
+
+    expect(at("10:00")).toMatchObject({ available: true, venueReserved: true });
+    expect(at("11:00")).toMatchObject({ available: true, venueReserved: false });
+  });
+
   it("marks past slots unavailable using Colombo time, not server time", () => {
     // 10:30 in Colombo is 05:00 UTC.
     const slots = buildSlots({ ...base, now: new Date(`${DATE}T05:00:00Z`) });

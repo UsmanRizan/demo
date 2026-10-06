@@ -331,6 +331,14 @@ export default function StepCourts({
                                 +{slot.surgePercentage}%
                               </div>
                             )}
+                            {slot.venueReserved && (
+                              <div
+                                className="mt-0.5 text-[10px] font-bold text-blue-600"
+                                title="Reserved with pay at venue. Pay online to secure this slot."
+                              >
+                                Venue hold
+                              </div>
+                            )}
                           </button>
                         );
                       })}
