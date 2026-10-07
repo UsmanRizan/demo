@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const message = `Your BookMyPlay verification code is ${otp}. It expires in ${OTP_TTL_MINUTES} minutes.`;
+    const message = `Your Toplay verification code is ${otp}. It expires in ${OTP_TTL_MINUTES} minutes.`;
 
     if (process.env.OTP_DEV_LOG === "true" && process.env.NODE_ENV !== "production") {
       // Local development only: print instead of sending a paid SMS.

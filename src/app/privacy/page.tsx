@@ -4,7 +4,7 @@ import LegalPage from "@/components/LegalPage";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "What personal data BookMyPlay collects, why, and your rights under Sri Lanka's PDPA.",
+  description: "What personal data Toplay collects, why, and your rights under Sri Lanka's PDPA.",
 };
 
 export default function PrivacyPage() {
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       updated="23 September 2026"
       intro={
         <p>
-          BookMyPlay Pvt. Ltd. is the controller of the personal data described here. We process
+          Toplay Pvt. Ltd. is the controller of the personal data described here. We process
           it in line with the Personal Data Protection Act, No. 9 of 2022 (Sri Lanka). You can
           download or delete your data yourself from{" "}
           <a href="/player/profile" className="font-bold underline">

@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description,
     alternates: { canonical: `/locations/${location.id}` },
     openGraph: {
-      title: `${location.name} | BookMyPlay`,
+      title: `${location.name} | Toplay`,
       description,
       type: "website",
       url: `/locations/${location.id}`,

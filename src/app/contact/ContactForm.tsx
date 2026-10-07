@@ -241,10 +241,10 @@ export default function ContactPage() {
                       <div>
                         <p className="text-sm font-semibold text-slate-900">Email</p>
                         <a
-                          href="mailto:support@bookmyplay.com"
+                          href="mailto:support@Toplay.com"
                           className="text-sm text-slate-600 hover:text-indigo-600"
                         >
-                          support@bookmyplay.com
+                          support@Toplay.com
                         </a>
                       </div>
                     </li>
@@ -275,7 +275,7 @@ export default function ContactPage() {
                       <div>
                         <p className="text-sm font-semibold text-slate-900">Office</p>
                         <p className="text-sm text-slate-600">
-                          BookMyPlay Pvt. Ltd.
+                          Toplay Pvt. Ltd.
                           <br />
                           123 Galle Road, Colombo 03
                           <br />

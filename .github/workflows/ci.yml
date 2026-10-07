@@ -49,17 +49,17 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: bookmyplay
-          POSTGRES_PASSWORD: bookmyplay
-          POSTGRES_DB: bookmyplay
+          POSTGRES_USER: toplay
+          POSTGRES_PASSWORD: toplay
+          POSTGRES_DB: toplay
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U bookmyplay"
+          --health-cmd "pg_isready -U toplay"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://bookmyplay:bookmyplay@localhost:5432/bookmyplay
+      DATABASE_URL: postgresql://toplay:toplay@localhost:5432/toplay
       E2E_BASE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4

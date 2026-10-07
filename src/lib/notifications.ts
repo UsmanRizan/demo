@@ -14,7 +14,7 @@ import { sendSms } from "@/lib/textlk";
  * (useful in development and tests, since SMS costs money).
  */
 
-const APP_NAME = "BookMyPlay";
+const APP_NAME = "Toplay";
 
 type Message = {
   type: string;

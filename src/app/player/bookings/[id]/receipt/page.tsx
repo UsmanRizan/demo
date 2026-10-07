@@ -91,10 +91,10 @@ export default async function ReceiptPage({ params }: PageProps) {
         <header className="flex items-start justify-between border-b-[3px] border-black pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center bg-black text-sm font-bold text-white">B</div>
-              <span className="text-lg font-bold uppercase">BookMyPlay</span>
+              <div className="flex h-9 w-9 items-center justify-center bg-black text-sm font-bold text-white">T</div>
+              <span className="text-lg font-bold uppercase">Toplay</span>
             </div>
-            <p className="mt-2 text-xs text-gray-500">BookMyPlay Pvt. Ltd. · Sri Lanka</p>
+            <p className="mt-2 text-xs text-gray-500">Toplay Pvt. Ltd. · Sri Lanka</p>
           </div>
           <div className="text-right">
             <h1 className="text-xl font-bold uppercase">
@@ -174,7 +174,7 @@ export default async function ReceiptPage({ params }: PageProps) {
             Payment method: {booking.payAtVenue
               ? "Paid at venue"
               : booking.paymentMethod === "wallet"
-                ? "BookMyPlay wallet"
+                ? "Toplay wallet"
                 : booking.paymentMethod ?? "Card (PayHere)"}
             {booking.paymentId && ` · Transaction ${booking.paymentId}`}
           </p>

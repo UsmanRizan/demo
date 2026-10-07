@@ -102,9 +102,9 @@ export default function Header({ user }: HeaderProps) {
         {/* Brand */}
         <a href={user ? dashboardHref : "/"} className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center bg-black text-sm font-bold text-white">
-            B
+            T
           </div>
-          <span className="text-lg font-bold uppercase tracking-tight">BookMyPlay</span>
+          <span className="text-lg font-bold uppercase tracking-tight">Toplay</span>
         </a>
 
         {/* Desktop nav links */}

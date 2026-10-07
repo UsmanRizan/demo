@@ -119,7 +119,7 @@ export default function AdminSportsPage() {
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Sports</h1>
 
             <p className="mt-1 text-slate-500">
-              Manage the sports available on BookMyPlay.
+              Manage the sports available on Toplay.
             </p>
           </div>
 

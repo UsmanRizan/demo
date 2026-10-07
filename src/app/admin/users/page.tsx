@@ -140,7 +140,7 @@ export default function AdminUsersPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Users</h1>
             <p className="mt-1 text-slate-500">
-              Manage BookMyPlay users and roles.
+              Manage Toplay users and roles.
             </p>
           </div>
 

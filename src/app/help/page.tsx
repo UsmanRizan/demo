@@ -6,13 +6,13 @@ import { getCurrentUser } from "@/lib/auth";
 export const metadata: Metadata = {
   title: "Help Center",
   description:
-    "Find answers to common questions about booking sports facilities, payments, cancellations, and managing your account on BookMyPlay.",
+    "Find answers to common questions about booking sports facilities, payments, cancellations, and managing your account on Toplay.",
 };
 
 const CATEGORIES = [
   {
     title: "Getting Started",
-    description: "New to BookMyPlay? Start here.",
+    description: "New to Toplay? Start here.",
     articles: [
       {
         q: "How do I create an account?",
@@ -20,7 +20,7 @@ const CATEGORIES = [
       },
       {
         q: "Do I need to install an app?",
-        a: "No installation required. BookMyPlay runs entirely in your browser on desktop and mobile. You can also add it to your home screen for an app-like experience.",
+        a: "No installation required. Toplay runs entirely in your browser on desktop and mobile. You can also add it to your home screen for an app-like experience.",
       },
       {
         q: "Which sports can I book?",
@@ -38,7 +38,7 @@ const CATEGORIES = [
       },
       {
         q: "What payment methods are accepted?",
-        a: "We support PayHere (cards and bank transfers) and the BookMyPlay wallet. Pay with whichever is more convenient for you.",
+        a: "We support PayHere (cards and bank transfers) and the Toplay wallet. Pay with whichever is more convenient for you.",
       },
       {
         q: "Can I cancel a booking?",
@@ -52,7 +52,7 @@ const CATEGORIES = [
   },
   {
     title: "Facility Owners",
-    description: "Run your venue on BookMyPlay.",
+    description: "Run your venue on Toplay.",
     articles: [
       {
         q: "How do I list my facility?",
@@ -60,7 +60,7 @@ const CATEGORIES = [
       },
       {
         q: "How and when do I get paid?",
-        a: "Earnings from confirmed bookings are added to your BookMyPlay wallet. You can request a withdrawal to your bank account at any time once the minimum threshold is reached.",
+        a: "Earnings from confirmed bookings are added to your Toplay wallet. You can request a withdrawal to your bank account at any time once the minimum threshold is reached.",
       },
       {
         q: "Can I block specific dates or times?",
@@ -86,7 +86,7 @@ const CATEGORIES = [
       },
       {
         q: "Is my payment information secure?",
-        a: "Yes. All card and bank payments are processed by PayHere, a PCI-DSS compliant payment gateway. BookMyPlay never stores your full card details.",
+        a: "Yes. All card and bank payments are processed by PayHere, a PCI-DSS compliant payment gateway. Toplay never stores your full card details.",
       },
     ],
   },
@@ -110,7 +110,7 @@ export default async function HelpCenterPage() {
               How can we help you today?
             </h1>
             <p className="mt-4 text-lg text-gray-400">
-              Browse answers to the most common questions about BookMyPlay.
+              Browse answers to the most common questions about Toplay.
               Can&apos;t find what you need?{" "}
               <a href="/contact" className="font-bold uppercase text-white hover:text-gray-300">
                 Contact our team

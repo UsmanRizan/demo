@@ -95,7 +95,7 @@ export async function captureException(
       method: "POST",
       headers: {
         "Content-Type": "application/x-sentry-envelope",
-        "X-Sentry-Auth": `Sentry sentry_version=7, sentry_client=bookmyplay/1.0, sentry_key=${dsn.publicKey}`,
+        "X-Sentry-Auth": `Sentry sentry_version=7, sentry_client=toplay/1.0, sentry_key=${dsn.publicKey}`,
       },
       body: envelope,
     });

@@ -76,13 +76,13 @@ const STATS = [
 const TESTIMONIALS = [
   {
     quote:
-      "Booking a badminton court used to mean five WhatsApp messages. With BookMyPlay I book in under a minute — and the venue always knows I&apos;m coming.",
+      "Booking a badminton court used to mean five WhatsApp messages. With Toplay I book in under a minute — and the venue always knows I&apos;m coming.",
     name: "Ruwan P.",
     role: "Player, Colombo",
   },
   {
     quote:
-      "We added three of our courts to BookMyPlay last year. Revenue is up 40% and the dashboard makes managing staff and blocked dates effortless.",
+      "We added three of our courts to Toplay last year. Revenue is up 40% and the dashboard makes managing staff and blocked dates effortless.",
     name: "Anjali S.",
     role: "Owner, Premier Sports Hub",
   },
@@ -132,7 +132,7 @@ export default async function HomePage() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">
-              BookMyPlay connects players with courts, turfs, and arenas across the
+              Toplay connects players with courts, turfs, and arenas across the
               country. Discover availability in real time, pay securely, and get on the
               court in minutes — not days.
             </p>
@@ -355,7 +355,7 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center">
             <p className="text-sm font-bold uppercase tracking-wider text-black">
-              Why BookMyPlay
+              Why Toplay
             </p>
             <h2 className="mt-2 text-3xl font-bold uppercase sm:text-4xl">
               Everything you need
@@ -430,7 +430,7 @@ export default async function HomePage() {
               Ready to get on the court?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-gray-400 sm:text-lg">
-              Join thousands of players and hundreds of venues already on BookMyPlay.
+              Join thousands of players and hundreds of venues already on Toplay.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a

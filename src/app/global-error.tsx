@@ -24,7 +24,7 @@ export default function GlobalError({
           padding: 16,
         }}
       >
-        <title>Something went wrong | BookMyPlay</title>
+        <title>Something went wrong | Toplay</title>
         <div
           style={{
             maxWidth: 420,
@@ -38,7 +38,7 @@ export default function GlobalError({
             Something went wrong
           </h1>
           <p style={{ fontSize: 14, color: "#555" }}>
-            BookMyPlay hit an unexpected error. Please try again.
+            Toplay hit an unexpected error. Please try again.
           </p>
           {error.digest && (
             <p style={{ fontSize: 12, color: "#999" }}>Reference: {error.digest}</p>

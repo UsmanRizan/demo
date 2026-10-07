@@ -111,7 +111,7 @@ export async function GET(request: Request) {
   return new NextResponse(`﻿${csv}\r\n`, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="bookmyplay-earnings-${today}.csv"`,
+      "Content-Disposition": `attachment; filename="toplay-earnings-${today}.csv"`,
       "Cache-Control": "no-store",
     },
   });

@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const response = await fetch(url.toString(), {
       headers: {
         Accept: "application/json",
-        "User-Agent": "BookMyPlay/1.0 (location-picker)",
+        "User-Agent": "Toplay/1.0 (location-picker)",
       },
       cache: "no-store",
     });

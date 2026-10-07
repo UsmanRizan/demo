@@ -102,7 +102,7 @@ export async function galleryAdd(kind: Kind, id: string, request: Request) {
 
   if (!isOwnCloudinaryUrl(parsed.data.url)) {
     return NextResponse.json(
-      { error: "Images must be uploaded through BookMyPlay." },
+      { error: "Images must be uploaded through Toplay." },
       { status: 400 },
     );
   }

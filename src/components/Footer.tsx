@@ -7,12 +7,12 @@ export default function Footer() {
           <div className="sm:col-span-2 lg:col-span-2">
             <div className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center bg-black text-sm font-bold text-white">
-                B
+                T
               </div>
-              <span className="text-lg font-bold uppercase tracking-tight">BookMyPlay</span>
+              <span className="text-lg font-bold uppercase tracking-tight">Toplay</span>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-gray-600">
-              BookMyPlay is Sri Lanka&apos;s trusted marketplace for booking indoor and
+              Toplay is Sri Lanka&apos;s trusted marketplace for booking indoor and
               outdoor sports facilities — built for players, facility owners, and the
               communities that bring them together.
             </p>
@@ -117,7 +117,7 @@ export default function Footer() {
         <div className="mt-12 border-t-[2px] border-black pt-6">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-xs font-bold uppercase tracking-wide">
-              &copy; {new Date().getFullYear()} BookMyPlay Pvt. Ltd. All rights reserved.
+              &copy; {new Date().getFullYear()} Toplay Pvt. Ltd. All rights reserved.
             </p>
             <div className="flex gap-5">
               <a href="/privacy" className="text-xs font-bold uppercase tracking-wide text-gray-600 hover:text-black transition-colors">

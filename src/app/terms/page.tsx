@@ -6,7 +6,7 @@ import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms that apply when you book or list sports facilities on BookMyPlay.",
+  description: "The terms that apply when you book or list sports facilities on Toplay.",
 };
 
 export default function TermsPage() {
@@ -16,7 +16,7 @@ export default function TermsPage() {
       updated="23 September 2026"
       intro={
         <p>
-          These terms govern your use of BookMyPlay, operated by BookMyPlay Pvt. Ltd. in Sri
+          These terms govern your use of Toplay, operated by Toplay Pvt. Ltd. in Sri
           Lanka. By creating an account or making a booking you agree to them. If you list a
           facility, the owner terms in section 6 also apply to you.
         </p>
@@ -66,7 +66,7 @@ export default function TermsPage() {
             <ul>
               <li>
                 You can cancel a paid booking up to {PLAYER_CANCEL_WINDOW_HOURS} hours before it
-                starts. The full amount is credited to your BookMyPlay wallet.
+                starts. The full amount is credited to your Toplay wallet.
               </li>
               <li>
                 Wallet credit can be used for any future booking. It is not redeemable for cash.
@@ -87,7 +87,7 @@ export default function TermsPage() {
           body: (
             <p>
               Venues set their own house rules (footwear, equipment, conduct). You are
-              responsible for following them and for any damage you cause. BookMyPlay is a
+              responsible for following them and for any damage you cause. Toplay is a
               marketplace; the venue is responsible for the facility, its safety and its staff.
             </p>
           ),
@@ -139,7 +139,7 @@ export default function TermsPage() {
           heading: "Liability",
           body: (
             <p>
-              To the extent permitted by Sri Lankan law, BookMyPlay is not liable for injury,
+              To the extent permitted by Sri Lankan law, Toplay is not liable for injury,
               loss or damage arising from the use of a facility, or for indirect losses. Our
               total liability for any booking is limited to the amount you paid for it.
             </p>

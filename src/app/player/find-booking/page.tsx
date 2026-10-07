@@ -342,9 +342,9 @@ function FindBookingContent() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <a href="/player" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center bg-black text-sm font-bold text-white">
-              B
+              T
             </div>
-            <span className="text-lg font-bold uppercase tracking-tight">BookMyPlay</span>
+            <span className="text-lg font-bold uppercase tracking-tight">Toplay</span>
           </a>
           <a href="/player" className="text-sm font-bold uppercase text-black hover:text-gray-600">
             My Dashboard

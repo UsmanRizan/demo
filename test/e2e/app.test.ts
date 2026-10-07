@@ -959,7 +959,7 @@ describe("#18 pages, SEO and error handling", () => {
   it("renders the public venue page with metadata and structured data", async () => {
     const page = await new Client().get(`/locations/${ids.locationId}`);
     expect(page.status).toBe(200);
-    expect(page.text).toContain(`<title>E2E Arena ${suffix}, Colombo | BookMyPlay</title>`);
+    expect(page.text).toContain(`<title>E2E Arena ${suffix}, Colombo | Toplay</title>`);
     expect(page.text).toContain("application/ld+json");
     expect(page.text).toContain("SportsActivityLocation");
   });
