@@ -58,12 +58,12 @@ describe("buildSlots", () => {
   it("keeps pay-at-venue reservations bookable but flags them", () => {
     const slots = buildSlots({
       ...base,
-      venueReserved: [{ startAt: colomboDateTime(DATE, "10:00"), endAt: colomboDateTime(DATE, "11:00") }],
+      unpaidHold: [{ startAt: colomboDateTime(DATE, "10:00"), endAt: colomboDateTime(DATE, "11:00") }],
     });
     const at = (t: string) => slots.find((s) => s.startTime === t);
 
-    expect(at("10:00")).toMatchObject({ available: true, venueReserved: true });
-    expect(at("11:00")).toMatchObject({ available: true, venueReserved: false });
+    expect(at("10:00")).toMatchObject({ available: true, unpaidHold: true });
+    expect(at("11:00")).toMatchObject({ available: true, unpaidHold: false });
   });
 
   it("marks past slots unavailable using Colombo time, not server time", () => {

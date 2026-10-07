@@ -2,7 +2,7 @@ import { after, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import {
-  bumpVenueBookings,
+  releaseCompetingHolds,
   creditOwnerEarning,
   findPaymentGroup,
   VENUE_BUMP_REASON,
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
       for (const booking of bookings) {
         // Online payments take precedence over unpaid pay-at-venue reservations.
-        bumpedVenue.push(...(await bumpVenueBookings(tx, booking)));
+        bumpedVenue.push(...(await releaseCompetingHolds(tx, booking, { excludeId: booking.id, reason: VENUE_BUMP_REASON })));
 
         await tx.booking.update({
           where: { id: booking.id },

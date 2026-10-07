@@ -2,6 +2,7 @@ import crypto from "crypto";
 import type { Prisma } from "@prisma/client";
 
 import { calculatePlayerPrice } from "@/lib/constants";
+import { isPayAtVenueEnabled } from "@/lib/features";
 import { creditWallet, debitWallet, netForBooking } from "@/lib/ledger";
 import { ownerShareFromTotal, roundMoney } from "@/lib/money";
 import { coversRange, timeToMinutes } from "@/lib/opening-hours";
@@ -242,6 +243,8 @@ export type HoldResult = {
   expiresAt: Date;
   facility: FacilityForQuote;
   reused: boolean;
+  /** Other players' unpaid holds released because this booking took the slot. */
+  releasedHolds?: string[];
 };
 
 /**
@@ -351,8 +354,29 @@ export async function createBookingHolds({
   const isSeries = quotes.length > 1;
 
   try {
+    const released: string[] = [];
+
     const bookings = await prisma.$transaction(async (tx) => {
       const created = [];
+
+      // Release other players' unpaid holds on these slots *before* inserting:
+      // the overlap constraint is enforced in the database, so the new row
+      // cannot be created until the old one is out of the way. Same
+      // transaction, so a failure here rolls both back together.
+      for (const quote of quotes) {
+        released.push(
+          ...(await releaseCompetingHolds(
+            tx,
+            {
+              facilityId,
+              playerId,
+              startAt: quote.startAt,
+              endAt: quote.endAt,
+            },
+            { reason: HOLD_TAKEOVER_REASON },
+          )),
+        );
+      }
 
       for (const [index, quote] of quotes.entries()) {
         const booking = await tx.booking.create({
@@ -385,6 +409,7 @@ export async function createBookingHolds({
       expiresAt,
       facility,
       reused: false,
+      releasedHolds: released,
     };
   } catch (error) {
     if (isOverlapViolation(error)) {
@@ -428,6 +453,11 @@ export async function findPaymentGroup(tx: Tx, bookingId: string) {
  * pay at the venue (the owner's price, without the platform fee).
  */
 export async function venueOptionForBookings(bookingIds: string[]) {
+  if (!isPayAtVenueEnabled()) {
+    // Cheap short-circuit so a disabled flag never depends on slot state.
+    return { available: false, totalPrice: 0 };
+  }
+
   const bookings = await prisma.booking.findMany({
     where: { id: { in: bookingIds } },
     select: {
@@ -507,26 +537,43 @@ export async function creditOwnerEarning(
   }
 }
 
-/**
- * Cancel unpaid pay-at-venue reservations that overlap a booking which is
- * being paid online. Returns the ids that were cancelled so the caller can
- * notify those players after the transaction commits.
- */
+/** Why a pay-at-venue reservation lost its slot to an online payment. */
 export const VENUE_BUMP_REASON = "Another player booked this slot with online payment";
 
-export async function bumpVenueBookings(
+/** Why an unpaid hold was released because another player took the slot. */
+export const HOLD_TAKEOVER_REASON =
+  "Another player booked this slot while your payment was pending";
+
+/**
+ * Release other players' unpaid holds that overlap this booking.
+ *
+ * A hold is a checkout in progress, not a reservation: nobody has paid, so the
+ * slot stays on sale and the newest intent wins. Called both when a new hold is
+ * created and when a payment lands, so a paying player always beats someone
+ * still sitting at checkout.
+ *
+ * Only PENDING + unpaid rows are touched. A CONFIRMED booking — including an
+ * unpaid pay-at-venue one the owner recorded — is a real reservation and keeps
+ * the slot.
+ */
+export async function releaseCompetingHolds(
   tx: Tx,
-  booking: { id: string; facilityId: string; startAt: Date; endAt: Date },
+  slot: { facilityId: string; playerId: string; startAt: Date; endAt: Date },
+  options: { excludeId?: string; reason?: string } = {},
 ): Promise<string[]> {
+  // An empty exclusion list matches nothing, which is what we want before the
+  // new hold row exists.
+  const exclude: string[] = options.excludeId ? [options.excludeId] : [];
+
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "Booking"
-    WHERE "facilityId" = ${booking.facilityId}
-      AND id <> ${booking.id}
-      AND "payAtVenue" = true
+    WHERE "facilityId" = ${slot.facilityId}
+      AND NOT (id = ANY(${exclude}::text[]))
+      AND "playerId" <> ${slot.playerId}
       AND "paymentStatus" = 'PENDING'
-      AND status IN ('PENDING', 'CONFIRMED')
-      AND "startAt" < ${booking.endAt}
-      AND "endAt" > ${booking.startAt}
+      AND status = 'PENDING'
+      AND "startAt" < ${slot.endAt}
+      AND "endAt" > ${slot.startAt}
     FOR UPDATE`;
 
   if (rows.length === 0) {
@@ -538,10 +585,13 @@ export async function bumpVenueBookings(
   await tx.booking.updateMany({
     where: { id: { in: ids } },
     data: {
+      // Matches what sweepExpiredHolds does to an expired hold. A payment that
+      // still arrives afterwards is honoured if the slot is free, and refunded
+      // to the player's wallet when it isn't.
       status: "CANCELLED",
       paymentStatus: "CANCELLED",
       cancelledAt: new Date(),
-      cancellationReason: VENUE_BUMP_REASON,
+      cancellationReason: options.reason ?? HOLD_TAKEOVER_REASON,
     },
   });
 
@@ -575,13 +625,18 @@ export async function confirmPaidBookings(
           return;
         }
 
-        // PENDING holds, or holds that expired/failed before the money arrived.
+        // PENDING holds, or holds that expired/were released before the money
+        // arrived (paymentStatus stays PENDING, so they can still be revived if
+        // the slot is still free).
         if (booking.status !== "PENDING" && booking.status !== "CANCELLED") {
           return;
         }
 
-        // Online payments take precedence over unpaid pay-at-venue reservations.
-        const bumped = await bumpVenueBookings(tx, booking);
+        // The payer wins: clear any other player's unpaid hold on this slot.
+        const bumped = await releaseCompetingHolds(tx, booking, {
+          excludeId: booking.id,
+          reason: VENUE_BUMP_REASON,
+        });
 
         await tx.booking.update({
           where: { id },

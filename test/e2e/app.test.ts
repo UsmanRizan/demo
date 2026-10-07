@@ -43,6 +43,7 @@ type BookingResponse = {
   orderId: string;
   totalPrice: string;
   payment: { fields: Record<string, string> };
+  payAtVenue?: { available: boolean; totalPrice: string } | null;
   code?: string;
   error?: string;
 };
@@ -342,20 +343,78 @@ describe("#6 sessions and password hash exposure", () => {
 describe("#22 double booking protection", () => {
   const date = colomboDate(30);
 
-  it("reuses a player's own hold and blocks other players", async () => {
+  it("reuses a player's own hold and lets another player take an unpaid slot", async () => {
     const first = await book(playerA, date, 8);
     expect(first.status).toBe(200);
 
     const again = await book(playerA, date, 8);
     expect(again.data.bookingId).toBe(first.data.bookingId);
 
+    // The slot stays on sale while playerA is still at checkout.
+    const slots = await new Client().get<{
+      facilities: { id: string; slots: { startTime: string; available: boolean; unpaidHold: boolean }[] }[];
+    }>(`/api/locations/${ids.locationId}/slots?date=${date}`);
+    const court = slots.data.facilities.find((f) => f.id === ids.facilityId);
+    const slot = court?.slots.find((s) => s.startTime === hour(8));
+    expect(slot?.available).toBe(true);
+    expect(slot?.unpaidHold).toBe(true);
+
+    // playerB books it, which releases playerA's hold instead of 409ing.
     const other = await book(playerB, date, 8);
+    expect(other.status).toBe(200);
+
+    const released = await prisma.booking.findUniqueOrThrow({
+      where: { id: first.data.bookingId as string },
+    });
+    expect(released.status).toBe("CANCELLED");
+    expect(released.cancellationReason).toMatch(/another player/i);
+
+    await playerB.post("/api/bookings/cancel", { bookingId: other.data.bookingId });
+  });
+
+  it("a paid booking still blocks the slot for everyone", async () => {
+    const hold = await book(playerA, date, 10);
+    expect(hold.status).toBe(200);
+    await payViaPayHere(hold.data.orderId, hold.data.totalPrice);
+
+    const other = await book(playerB, date, 10);
     expect(other.status).toBe(409);
     expect(other.data.code).toBe("SLOT_UNAVAILABLE");
 
-    await playerA.post("/api/bookings/cancel", { bookingId: first.data.bookingId });
+    await playerA.post("/api/bookings/cancel", { bookingId: hold.data.bookingId });
   });
 
+  it("the payer wins the slot and the other player's hold is dropped", async () => {
+    const mine = await book(playerA, date, 12);
+    expect(mine.status).toBe(200);
+
+    const winner = await book(playerB, date, 12);
+    expect(winner.status).toBe(200);
+
+    const playerBBefore = await walletBalance(await userId(playerB));
+
+    // playerA pays late. A payer always beats someone still at checkout, so
+    // their hold is revived and playerB's unpaid hold is released.
+    const late = await payViaPayHere(mine.data.orderId, mine.data.totalPrice);
+    expect(late.status).toBe(200);
+
+    expect(
+      await prisma.booking.findUniqueOrThrow({
+        where: { id: mine.data.bookingId as string },
+      }),
+    ).toMatchObject({ status: "CONFIRMED", paymentStatus: "PAID" });
+
+    expect(
+      await prisma.booking.findUniqueOrThrow({
+        where: { id: winner.data.bookingId as string },
+      }),
+    ).toMatchObject({ status: "CANCELLED" });
+
+    // playerB never paid, so nothing moves for them.
+    expect(await walletBalance(await userId(playerB))).toBe(playerBBefore);
+
+    await playerA.post("/api/bookings/cancel", { bookingId: mine.data.bookingId });
+  });
   it("is enforced by the database even if application checks are bypassed", async () => {
     const playerId = await userId(playerA);
     const startAt = new Date(`${date}T09:00:00+05:30`);
@@ -1453,6 +1512,32 @@ describe("weekly invoices", () => {
       accountHolderName: "Test Owner",
     });
     expect(response.status).toBe(410);
+  });
+});
+
+describe("pay at venue", () => {
+  const date = colomboDate(45);
+
+  // The flag is read in the server process, so the disabled branch is covered
+  // by src/lib/features.test.ts and verified by hand against a server started
+  // with PAY_AT_VENUE_ENABLED=false. This only asserts the enabled contract.
+  it("is offered at checkout and can be completed", async () => {
+    const hold = await book(playerA, date, 9);
+    expect(hold.status).toBe(200);
+    expect(hold.data.payAtVenue?.available).toBe(true);
+
+    const venue = await playerA.post("/api/payments/venue/create", {
+      bookingId: hold.data.bookingId,
+    });
+    expect(venue.status).toBe(200);
+
+    expect(
+      await prisma.booking.findUniqueOrThrow({
+        where: { id: hold.data.bookingId as string },
+      }),
+    ).toMatchObject({ payAtVenue: true, status: "CONFIRMED" });
+
+    await playerA.post("/api/bookings/cancel", { bookingId: hold.data.bookingId });
   });
 });
 

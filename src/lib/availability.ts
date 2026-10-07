@@ -23,9 +23,9 @@ export type PublicSlot = {
   startTime: string;
   endTime: string;
   available: boolean;
-  // An unpaid pay-at-venue reservation holds this slot. It can still be
-  // booked with an online payment, but not with another pay-at-venue booking.
-  venueReserved: boolean;
+  // Another player has this slot in checkout but has not paid. It stays on
+  // sale, so booking it releases their hold.
+  unpaidHold: boolean;
   pricePerHour: number;
   surgePercentage: number;
 };
@@ -58,7 +58,7 @@ export function buildSlots({
   basePrice,
   rules,
   taken,
-  venueReserved = [],
+  unpaidHold = [],
   blocked,
   now = new Date(),
   range = [0, 24 * 60],
@@ -68,7 +68,7 @@ export function buildSlots({
   basePrice: number;
   rules: PricingRuleInput[];
   taken: { startAt: Date; endAt: Date }[];
-  venueReserved?: { startAt: Date; endAt: Date }[];
+  unpaidHold?: { startAt: Date; endAt: Date }[];
   blocked: boolean;
   now?: Date;
   range?: [number, number];
@@ -93,7 +93,7 @@ export function buildSlots({
       const slotEnd = colomboDateTime(date, endTime);
 
       const isTaken = taken.some((b) => b.startAt < slotEnd && b.endAt > slotStart);
-      const isVenueReserved = venueReserved.some(
+      const hasUnpaidHold = unpaidHold.some(
         (b) => b.startAt < slotEnd && b.endAt > slotStart,
       );
       const isPast = slotStart.getTime() <= now.getTime();
@@ -109,7 +109,7 @@ export function buildSlots({
         startTime,
         endTime,
         available: !isTaken && !isPast && !blocked,
-        venueReserved: isVenueReserved,
+        unpaidHold: hasUnpaidHold,
         pricePerHour: calculatePlayerPrice(adjustedPrice),
         surgePercentage,
       });
@@ -139,9 +139,9 @@ export type FacilityWithSlots = {
   avgSurge: number;
 };
 
-/** Unpaid pay-at-venue bookings can be overridden by an online payment. */
-function isSoftVenueBooking(booking: { payAtVenue: boolean; paymentStatus: string }) {
-  return booking.payAtVenue && booking.paymentStatus === "PENDING";
+/** A booking that is only in checkout: unpaid and not yet confirmed. */
+function isUnpaidHold(booking: { status: string; paymentStatus: string }) {
+  return booking.status === "PENDING" && booking.paymentStatus === "PENDING";
 }
 
 /** Load facilities matching `where` and compute their slots for `date`. */
@@ -225,6 +225,7 @@ export async function getFacilitiesWithSlots({
         select: {
           startAt: true,
           endAt: true,
+          status: true,
           payAtVenue: true,
           paymentStatus: true,
         },
@@ -241,8 +242,12 @@ export async function getFacilitiesWithSlots({
       opening: availabilities[0] ?? null,
       basePrice: Number(facility.price),
       rules: pricingRules,
-      taken: facility.bookings.filter((b) => !isSoftVenueBooking(b)),
-      venueReserved: facility.bookings.filter(isSoftVenueBooking),
+      // A PENDING + unpaid row is a checkout in progress, not a reservation:
+      // it stays bookable and is released when someone else takes the slot.
+      // Everything else in PENDING/CONFIRMED — including an unpaid
+      // pay-at-venue booking the owner recorded — genuinely holds the slot.
+      taken: facility.bookings.filter((b) => !isUnpaidHold(b)),
+      unpaidHold: facility.bookings.filter(isUnpaidHold),
       blocked,
       now,
       range,

@@ -311,12 +311,12 @@ export default function VenueBooking({
                                   {slot.available && (
                                     <span className="block opacity-70">{formatLkr(slot.pricePerHour)}</span>
                                   )}
-                                  {slot.available && slot.venueReserved && (
+                                  {slot.available && slot.unpaidHold && (
                                     <span
                                       className="block text-[10px] text-blue-600"
-                                      title="Reserved with pay at venue. Pay online to secure this slot."
+                                      title="Another player is checking out this slot but has not paid yet. Book it and their hold is released."
                                     >
-                                      Venue hold
+                                      Unpaid hold
                                     </span>
                                   )}
                                 </button>

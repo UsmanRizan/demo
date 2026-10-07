@@ -10,7 +10,7 @@ export type Slot = {
   startTime: string;
   endTime: string;
   available: boolean;
-  venueReserved?: boolean;
+  unpaidHold?: boolean;
   pricePerHour?: number;
   surgePercentage?: number;
 };

@@ -2,6 +2,10 @@ import { after, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { findPaymentGroup, isVenueOverlapViolation, ownerAmountOf } from "@/lib/bookings";
+import {
+  isPayAtVenueEnabled,
+  PAY_AT_VENUE_DISABLED_MESSAGE,
+} from "@/lib/features";
 import { logError } from "@/lib/monitoring";
 import { notifyBookingConfirmed } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +33,15 @@ export async function POST(request: Request) {
     if (currentUser.role !== "PLAYER") {
       return NextResponse.json(
         { error: "Only players can make bookings" },
+        { status: 403 },
+      );
+    }
+
+    // Server-side gate: hiding the option in the UI is not enough, because the
+    // endpoint can be called directly.
+    if (!isPayAtVenueEnabled()) {
+      return NextResponse.json(
+        { error: PAY_AT_VENUE_DISABLED_MESSAGE, code: "PAY_AT_VENUE_DISABLED" },
         { status: 403 },
       );
     }

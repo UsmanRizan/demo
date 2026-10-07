@@ -1,8 +1,15 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
-import { BookingError, createBookingHolds, venueOptionForBookings } from "@/lib/bookings";
+import {
+  BookingError,
+  createBookingHolds,
+  HOLD_TAKEOVER_REASON,
+  venueOptionForBookings,
+} from "@/lib/bookings";
+import { isPayAtVenueEnabled } from "@/lib/features";
 import { logError } from "@/lib/monitoring";
+import { notifyBookingCancelled } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { buildPayHerePayment } from "@/lib/payhere-helpers";
 import { enforceRateLimits } from "@/lib/rate-limit";
@@ -127,6 +134,11 @@ export async function POST(request: Request) {
 
     const venueOption = await venueOptionForBookings(holds.bookings.map((b) => b.id));
 
+    // Tell anyone whose unpaid hold we just took over.
+    for (const id of holds.releasedHolds ?? []) {
+      after(() => notifyBookingCancelled(id, "system", 0, HOLD_TAKEOVER_REASON));
+    }
+
     return NextResponse.json({
       success: true,
       bookingId: firstBooking.id,
@@ -139,10 +151,14 @@ export async function POST(request: Request) {
         totalPrice: b.totalPrice.toFixed(2),
       })),
       expiresAt: holds.expiresAt,
-      payAtVenue: {
-        available: venueOption.available,
-        totalPrice: venueOption.totalPrice.toFixed(2),
-      },
+      // Sent as null when the feature is disabled so checkout omits the
+      // option entirely instead of showing a dead one.
+      payAtVenue: isPayAtVenueEnabled()
+        ? {
+            available: venueOption.available,
+            totalPrice: venueOption.totalPrice.toFixed(2),
+          }
+        : null,
       payment,
     });
   } catch (error) {

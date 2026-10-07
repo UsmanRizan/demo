@@ -331,12 +331,12 @@ export default function StepCourts({
                                 +{slot.surgePercentage}%
                               </div>
                             )}
-                            {slot.venueReserved && (
+                            {slot.unpaidHold && (
                               <div
                                 className="mt-0.5 text-[10px] font-bold text-blue-600"
-                                title="Reserved with pay at venue. Pay online to secure this slot."
+                                title="Another player is checking out this slot but has not paid yet. Book it and their hold is released."
                               >
-                                Venue hold
+                                Unpaid hold
                               </div>
                             )}
                           </button>
