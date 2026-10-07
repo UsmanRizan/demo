@@ -125,10 +125,17 @@ model Availability {
   id               String   @id @default(cuid())
   locationId       String
   dayOfWeek        Int
+  // Envelope of the selected hours, kept in sync with `hours` so existing
+  // queries that only need "roughly when are you open" keep working.
   startTime        String
   endTime          String
   isActive         Boolean  @default(true)
   isTwentyFourHour Boolean  @default(false)
+  // Explicitly open hours as [{ start: "08:00", end: "12:00" }, ...].
+  // Owners pick individual hours, so a day can have several disjoint ranges.
+  // Null on rows written before hourly selection existed; those fall back to
+  // the startTime/endTime envelope.
+  hours            Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

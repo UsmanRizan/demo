@@ -4,9 +4,13 @@ import type { Prisma } from "@prisma/client";
 import { calculatePlayerPrice } from "@/lib/constants";
 import { creditWallet, debitWallet, netForBooking } from "@/lib/ledger";
 import { ownerShareFromTotal, roundMoney } from "@/lib/money";
+import { coversRange, timeToMinutes } from "@/lib/opening-hours";
 import { calculateDynamicPrice } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
 import { createLocalDateTime } from "@/lib/utils";
+
+/** Re-exported so existing imports of the time helpers keep working. */
+export { minutesToTime, timeToMinutes } from "@/lib/opening-hours";
 
 type Tx = Prisma.TransactionClient;
 
@@ -66,12 +70,6 @@ export function isVenueOverlapViolation(error: unknown): boolean {
 // ---------------------------------------------------------------------------
 // Time helpers (all booking times are Asia/Colombo, UTC+05:30, no DST)
 // ---------------------------------------------------------------------------
-
-export function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-
-  return hours * 60 + minutes;
-}
 
 export function dayOfWeekForDate(date: string): number {
   const [year, month, day] = date.split("-").map(Number);
@@ -154,13 +152,21 @@ export function quoteSlot(
   }
 
   if (!availability.isTwentyFourHour) {
-    const openingStart = colomboDateTime(slot.date, availability.startTime);
-    // "23:59" is used by the UI to mean "until midnight".
-    const closing =
-      availability.endTime === "23:59" ? "24:00" : availability.endTime;
-    const openingEnd = colomboDateTime(slot.date, closing);
+    // Check the day's actual open ranges rather than the outer envelope, so a
+    // slot inside a gap between two ranges cannot be booked by calling the API
+    // directly (the UI only offers hours the venue actually opens).
+    const covered = coversRange(
+      {
+        startTime: availability.startTime,
+        endTime: availability.endTime,
+        isTwentyFourHour: availability.isTwentyFourHour,
+        hours: availability.hours,
+      },
+      slot.startTime,
+      slot.endTime,
+    );
 
-    if (startAt < openingStart || endAt > openingEnd) {
+    if (!covered) {
       throw new BookingError(
         "The selected time is outside the location opening hours.",
       );

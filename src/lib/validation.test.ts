@@ -89,19 +89,44 @@ describe("locationCreateSchema", () => {
 });
 
 describe("availabilitySchema", () => {
-  it("requires times unless open 24 hours", () => {
+  it("accepts a day with selected hours", () => {
     expect(
-      availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1, isTwentyFourHour: true }] }).success,
+      availabilitySchema.safeParse({
+        availability: [{ dayOfWeek: 1, hours: [8, 9, 10, 14] }],
+      }).success,
     ).toBe(true);
+  });
+
+  it("accepts every hour of the day", () => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
+    expect(
+      availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1, hours }] }).success,
+    ).toBe(true);
+  });
+
+  it("requires at least one hour per open day", () => {
+    expect(
+      availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1, hours: [] }] }).success,
+    ).toBe(false);
     expect(availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1 }] }).success).toBe(false);
   });
 
-  it("rejects duplicate days and inverted hours", () => {
-    const day = { dayOfWeek: 1, startTime: "06:00", endTime: "22:00" };
+  it("rejects hours outside 0-23 and non-integers", () => {
+    expect(
+      availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1, hours: [24] }] }).success,
+    ).toBe(false);
+    expect(
+      availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1, hours: [-1] }] }).success,
+    ).toBe(false);
+    expect(
+      availabilitySchema.safeParse({ availability: [{ dayOfWeek: 1, hours: [9.5] }] }).success,
+    ).toBe(false);
+  });
+
+  it("rejects duplicate days", () => {
+    const day = { dayOfWeek: 1, hours: [8, 9] };
 
     expect(availabilitySchema.safeParse({ availability: [day, day] }).success).toBe(false);
-    expect(
-      availabilitySchema.safeParse({ availability: [{ ...day, startTime: "23:00" }] }).success,
-    ).toBe(false);
   });
 });

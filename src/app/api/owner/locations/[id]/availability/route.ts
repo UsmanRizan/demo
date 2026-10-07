@@ -1,6 +1,8 @@
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { mergeHourlySelection } from "@/lib/opening-hours";
 import { prisma } from "@/lib/prisma";
 import { availabilitySchema, parseJson } from "@/lib/validation";
 import { logError } from "@/lib/monitoring";
@@ -10,6 +12,11 @@ type RouteContext = {
     id: string;
   }>;
 };
+
+/** Stored hour ranges; older rows fall back to their envelope. */
+function normalizeHours(hours: unknown) {
+  return Array.isArray(hours) ? hours : [];
+}
 
 export async function GET(request: Request, context: RouteContext) {
   const user = await getCurrentUser();
@@ -41,7 +48,10 @@ export async function GET(request: Request, context: RouteContext) {
   });
 
   return NextResponse.json({
-    availability,
+    availability: availability.map((row) => ({
+      ...row,
+      hours: normalizeHours(row.hours),
+    })),
   });
 }
 
@@ -86,16 +96,28 @@ export async function PUT(request: Request, context: RouteContext) {
 
       if (entries.length > 0) {
         await tx.availability.createMany({
-          data: entries.map(
-            (entry) => ({
+          data: entries.map((entry) => {
+            const ranges = mergeHourlySelection(entry.hours);
+            const isTwentyFourHour = entry.hours.length === 24;
+
+            // Keep the envelope in sync so the many places that only need
+            // "roughly when are you open" (and dynamic pricing rules) keep
+            // working without knowing about the hour ranges.
+            const startTime = isTwentyFourHour ? "00:00" : ranges[0].start;
+            const endTime = isTwentyFourHour
+              ? "24:00"
+              : ranges[ranges.length - 1].end;
+
+            return {
               locationId: id,
               dayOfWeek: entry.dayOfWeek,
-              startTime: entry.isTwentyFourHour ? "00:00" : (entry.startTime ?? "00:00"),
-              endTime: entry.isTwentyFourHour ? "24:00" : (entry.endTime ?? "24:00"),
+              startTime,
+              endTime,
               isActive: entry.isActive ?? true,
-              isTwentyFourHour: entry.isTwentyFourHour ?? false,
-            }),
-          ),
+              isTwentyFourHour,
+              hours: ranges as Prisma.InputJsonValue,
+            };
+          }),
         });
       }
 
@@ -111,7 +133,10 @@ export async function PUT(request: Request, context: RouteContext) {
 
     return NextResponse.json({
       success: true,
-      availability,
+      availability: availability.map((row) => ({
+        ...row,
+        hours: normalizeHours(row.hours),
+      })),
     });
   } catch (error) {
     logError("Location availability error:", error);

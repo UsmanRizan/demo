@@ -44,7 +44,7 @@ export default function VenueMap({
           style={{ width, height }}
           aria-hidden="true"
         >
-          {tiles.map((tile) => (
+          {tiles.map((tile, index) => (
             <Image
               key={`${tile.x}:${tile.y}`}
               src={tileUrl(zoom, tile.x, tile.y)}
@@ -52,6 +52,12 @@ export default function VenueMap({
               width={TILE_SIZE}
               height={TILE_SIZE}
               unoptimized
+              // The map sits above the fold on a venue page, so the first
+              // tiles are what the browser paints first; let them load eagerly
+              // instead of deferring and being reported as the LCP element.
+              loading={index < 4 ? "eager" : "lazy"}
+              fetchPriority={index < 4 ? "high" : "auto"}
+              decoding="async"
               className="absolute select-none"
               style={{ left: tile.left, top: tile.top }}
             />

@@ -312,36 +312,36 @@ const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "Times must use HH:MM format");
 export const availabilitySchema = z.object({
   availability: z
     .array(
-      z
-        .object({
-          dayOfWeek: z
-            .number({ error: "dayOfWeek must be between 0 and 6" })
-            .int("dayOfWeek must be between 0 and 6")
-            .min(0, "dayOfWeek must be between 0 and 6")
-            .max(6, "dayOfWeek must be between 0 and 6"),
-          startTime: hhmm.optional(),
-          endTime: hhmm.optional(),
-          isActive: z.boolean().optional(),
-          isTwentyFourHour: z.boolean().optional(),
-        })
-        .refine(
-          (entry) =>
-            entry.isTwentyFourHour === true ||
-            (!!entry.startTime && !!entry.endTime),
-          { message: "startTime and endTime are required" },
-        )
-        .refine(
-          (entry) =>
-            entry.isTwentyFourHour === true ||
-            (entry.startTime ?? "") < (entry.endTime ?? ""),
-          { message: "Start time must be before end time" },
-        ),
+      z.object({
+        dayOfWeek: z
+          .number({ error: "dayOfWeek must be between 0 and 6" })
+          .int("dayOfWeek must be between 0 and 6")
+          .min(0, "dayOfWeek must be between 0 and 6")
+          .max(6, "dayOfWeek must be between 0 and 6"),
+        // Owners tick individual hours (0 = 00:00-01:00 ... 23 = 23:00-24:00).
+        // The server merges them into contiguous ranges and derives the
+        // startTime/endTime envelope, so no HH:MM strings come from the client.
+        hours: z
+          .array(
+            z
+              .number({ error: "Hours must be numbers between 0 and 23" })
+              .int("Hours must be whole numbers between 0 and 23")
+              .min(0, "Hours must be between 0 and 23")
+              .max(23, "Hours must be between 0 and 23"),
+          )
+          .max(24),
+        isActive: z.boolean().optional(),
+      }),
       { error: "availability must be an array" },
     )
     .max(7)
     .refine(
       (entries) => new Set(entries.map((e) => e.dayOfWeek)).size === entries.length,
       { message: "A day cannot be added more than once" },
+    )
+    .refine(
+      (entries) => entries.every((entry) => entry.hours.length > 0),
+      { message: "Pick at least one hour for each day you are open" },
     ),
 });
 

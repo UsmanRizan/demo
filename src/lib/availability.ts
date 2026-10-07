@@ -1,7 +1,12 @@
 import type { Prisma } from "@prisma/client";
 
-import { colomboDateTime, dayOfWeekForDate, timeToMinutes } from "@/lib/bookings";
+import { colomboDateTime, dayOfWeekForDate } from "@/lib/bookings";
 import { calculatePlayerPrice } from "@/lib/constants";
+import {
+  minutesToTime,
+  openingRanges,
+  type OpeningHours,
+} from "@/lib/opening-hours";
 import { calculateDynamicPrice } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
 import { createLocalDateTime } from "@/lib/utils";
@@ -33,24 +38,18 @@ export type PricingRuleInput = {
   isActive: boolean;
 };
 
-function minutesToTime(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-}
-
-/** Opening window in minutes; "23:59"/"24:00" and 24-hour venues close at midnight. */
-export function openingWindow(opening: {
-  startTime: string;
-  endTime: string;
-  isTwentyFourHour: boolean;
-}): [number, number] {
-  if (opening.isTwentyFourHour) {
-    return [0, 24 * 60];
-  }
-
-  const end = opening.endTime === "23:59" ? 24 * 60 : timeToMinutes(opening.endTime);
-
-  return [timeToMinutes(opening.startTime), end];
-}
+/**
+ * Opening-hours primitives live in ./opening-hours so booking validation can
+ * share them. Re-exported here because slot generation is their main consumer.
+ */
+export {
+  coversRange,
+  expandHourRanges,
+  mergeHourlySelection,
+  openingRanges,
+  openingWindow,
+} from "@/lib/opening-hours";
+export type { HourRange, OpeningHours } from "@/lib/opening-hours";
 
 /** Pure slot builder (unit-tested). */
 export function buildSlots({
@@ -65,7 +64,7 @@ export function buildSlots({
   range = [0, 24 * 60],
 }: {
   date: string;
-  opening: { startTime: string; endTime: string; isTwentyFourHour: boolean } | null;
+  opening: OpeningHours | null;
   basePrice: number;
   rules: PricingRuleInput[];
   taken: { startAt: Date; endAt: Date }[];
@@ -78,39 +77,43 @@ export function buildSlots({
     return [];
   }
 
-  const [open, close] = openingWindow(opening);
-  const start = Math.max(open, range[0]);
-  const end = Math.min(close, range[1]);
   const dayOfWeek = dayOfWeekForDate(date);
   const slots: PublicSlot[] = [];
 
-  for (let minute = start; minute + 60 <= end; minute += 60) {
-    const startTime = minutesToTime(minute);
-    const endTime = minutesToTime(minute + 60);
-    const slotStart = colomboDateTime(date, startTime);
-    const slotEnd = colomboDateTime(date, endTime);
+  // A day can have several disjoint open ranges, so build each one separately
+  // instead of spanning the gaps between them.
+  for (const [open, close] of openingRanges(opening)) {
+    const start = Math.max(open, range[0]);
+    const end = Math.min(close, range[1]);
 
-    const isTaken = taken.some((b) => b.startAt < slotEnd && b.endAt > slotStart);
-    const isVenueReserved = venueReserved.some(
-      (b) => b.startAt < slotEnd && b.endAt > slotStart,
-    );
-    const isPast = slotStart.getTime() <= now.getTime();
+    for (let minute = start; minute + 60 <= end; minute += 60) {
+      const startTime = minutesToTime(minute);
+      const endTime = minutesToTime(minute + 60);
+      const slotStart = colomboDateTime(date, startTime);
+      const slotEnd = colomboDateTime(date, endTime);
 
-    const { adjustedPrice, surgePercentage } = calculateDynamicPrice(
-      basePrice,
-      startTime,
-      dayOfWeek,
-      rules,
-    );
+      const isTaken = taken.some((b) => b.startAt < slotEnd && b.endAt > slotStart);
+      const isVenueReserved = venueReserved.some(
+        (b) => b.startAt < slotEnd && b.endAt > slotStart,
+      );
+      const isPast = slotStart.getTime() <= now.getTime();
 
-    slots.push({
-      startTime,
-      endTime,
-      available: !isTaken && !isPast && !blocked,
-      venueReserved: isVenueReserved,
-      pricePerHour: calculatePlayerPrice(adjustedPrice),
-      surgePercentage,
-    });
+      const { adjustedPrice, surgePercentage } = calculateDynamicPrice(
+        basePrice,
+        startTime,
+        dayOfWeek,
+        rules,
+      );
+
+      slots.push({
+        startTime,
+        endTime,
+        available: !isTaken && !isPast && !blocked,
+        venueReserved: isVenueReserved,
+        pricePerHour: calculatePlayerPrice(adjustedPrice),
+        surgePercentage,
+      });
+    }
   }
 
   return slots;
@@ -187,7 +190,12 @@ export async function getFacilitiesWithSlots({
           longitude: true,
           availabilities: {
             where: { dayOfWeek, isActive: true },
-            select: { startTime: true, endTime: true, isTwentyFourHour: true },
+            select: {
+              startTime: true,
+              endTime: true,
+              isTwentyFourHour: true,
+              hours: true,
+            },
           },
           pricingRules: {
             where: { isActive: true },
