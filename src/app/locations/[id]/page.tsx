@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import StarRating from "@/components/StarRating";
 import VenueBooking from "@/components/VenueBooking";
+import VenueMap from "@/components/VenueMap";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLocationReviews, getRatingSummaries, reviewerName } from "@/lib/reviews";
@@ -177,6 +178,16 @@ export default async function LocationPublicPage({ params, searchParams }: PageP
             )}
           </div>
         </div>
+
+        {location.latitude !== null && location.longitude !== null && (
+          <section aria-label="Location map">
+            <VenueMap
+              latitude={location.latitude}
+              longitude={location.longitude}
+              name={location.name}
+            />
+          </section>
+        )}
 
         {gallery.length > 0 && (
           <section aria-label="Photos" className="mt-8 grid gap-3 sm:grid-cols-3">
