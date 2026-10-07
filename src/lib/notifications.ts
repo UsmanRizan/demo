@@ -281,6 +281,60 @@ export async function notifyBookingReminder(bookingId: string): Promise<void> {
   });
 }
 
+/**
+ * Tell an owner the admin decision on a facility they submitted.
+ */
+export async function notifyFacilityReviewed(
+  ownerId: string,
+  facilityName: string,
+  approvalStatus: "APPROVED" | "REJECTED",
+  reason?: string | null,
+): Promise<void> {
+  const approved = approvalStatus === "APPROVED";
+  const reasonText = reason ? ` Reason: ${reason}.` : "";
+
+  await notifyUser(ownerId, {
+    type: `FACILITY_${approvalStatus}`,
+    sms: approved
+      ? `${APP_NAME}: "${facilityName}" was approved. Players can now book it.`
+      : `${APP_NAME}: "${facilityName}" was not approved.${reasonText} Update it and resubmit.`,
+    email: {
+      subject: approved
+        ? `Facility approved: ${facilityName}`
+        : `Facility not approved: ${facilityName}`,
+      text: [
+        approved
+          ? `Good news — "${facilityName}" has been approved and is now visible and bookable by players.`
+          : `"${facilityName}" was not approved.${reasonText} You can update its details and submit it again for review.`,
+      ].join("\n"),
+    },
+  });
+}
+
+/**
+ * Tell an owner their weekly invoice has been settled into their bank account.
+ */
+export async function notifyInvoicePaid(
+  ownerId: string,
+  amount: number,
+  periodStartIso: string,
+): Promise<void> {
+  const week = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Colombo",
+  }).format(new Date(periodStartIso));
+
+  await notifyUser(ownerId, {
+    type: "INVOICE_PAID",
+    sms: `${APP_NAME}: Your weekly invoice for the week of ${week} was paid. ${formatLkr(amount)} has been sent to your bank account.`,
+    email: {
+      subject: `Weekly payout sent: ${formatLkr(amount)}`,
+      text: `Your weekly invoice for the week of ${week} has been paid. ${formatLkr(amount)} has been sent to your registered bank account.`,
+    },
+  });
+}
+
 export async function notifyWithdrawalProcessed(
   ownerId: string,
   amount: number,

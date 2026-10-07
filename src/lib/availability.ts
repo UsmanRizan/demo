@@ -160,6 +160,9 @@ export async function getFacilitiesWithSlots({
     where: {
       ...where,
       isActive: true,
+      // Facilities awaiting (or refused) admin approval are not bookable, so
+      // they never appear in search results or on the venue page.
+      approvalStatus: "APPROVED",
       location: {
         ...(where.location as Prisma.LocationWhereInput | undefined),
         isActive: true,

@@ -262,6 +262,42 @@ export const facilityUpdateSchema = z.object({
   reason: z.string().trim().max(300).optional(),
 });
 
+// Owner payout profile, used to pay weekly invoices.
+export const payoutProfileSchema = z.object({
+  bankName: z
+    .string()
+    .trim()
+    .min(2, "Enter the bank name.")
+    .max(80),
+  accountNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{6,20}$/, "Enter the account number as digits only."),
+  accountHolderName: z
+    .string()
+    .trim()
+    .min(2, "Enter the account holder name.")
+    .max(80),
+});
+
+// Settling a weekly invoice from the admin panel.
+export const invoicePaySchema = z.object({
+  paymentRef: z.string().trim().max(80).optional(),
+  note: z.string().trim().max(300).optional(),
+});
+
+// Admin moderation of a newly added facility.
+export const facilityApprovalSchema = z.object({
+  action: z.enum(["approve", "reject"], {
+    error: "Action must be 'approve' or 'reject'.",
+  }),
+  // A reason is required to reject so the owner knows what to fix.
+  reason: z.string().trim().max(300).optional(),
+}).refine((value) => value.action !== "reject" || !!value.reason, {
+  message: "Please give a reason so the owner can fix and resubmit.",
+  path: ["reason"],
+});
+
 export const blockDateSchema = z.object({
   date: z
     .string({ error: "date is required (YYYY-MM-DD)" })

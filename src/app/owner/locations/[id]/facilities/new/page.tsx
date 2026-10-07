@@ -150,6 +150,11 @@ export default function NewFacilityPage() {
             Add a court, turf, room, or other bookable facility.
           </p>
 
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            New facilities are reviewed by an admin before players can see or
+            book them. You&apos;ll get an SMS once it&apos;s approved.
+          </div>
+
           <form onSubmit={createFacility} className="mt-8 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium">Facility image</label>

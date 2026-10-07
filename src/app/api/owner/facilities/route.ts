@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { facilityCreateSchema, parseJson } from "@/lib/validation";
@@ -59,6 +60,9 @@ export async function POST(request: Request) {
         description,
         imageUrl,
         price,
+        // New facilities are held for admin review before players can see or
+        // book them.
+        approvalStatus: "PENDING",
         sports: {
           connect: sportIds.map((id) => ({ id })),
         },
@@ -67,6 +71,15 @@ export async function POST(request: Request) {
         sports: true,
         location: true,
       },
+    });
+
+    await audit({
+      actorId: user.id,
+      action: "facility.create",
+      entityType: "Facility",
+      entityId: facility.id,
+      metadata: { locationId, name, price, sportIds },
+      request,
     });
 
     return NextResponse.json(

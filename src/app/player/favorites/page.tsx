@@ -29,7 +29,7 @@ export default async function FavoritesPage() {
           address: true,
           city: true,
           facilities: {
-            where: { isActive: true },
+            where: { isActive: true, approvalStatus: "APPROVED" },
             select: { sports: { select: { id: true, name: true } } },
           },
         },

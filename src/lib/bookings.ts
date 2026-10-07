@@ -261,7 +261,13 @@ export async function createBookingHolds({
   await sweepExpiredHolds();
 
   const facility = await prisma.facility.findFirst({
-    where: { id: facilityId, isActive: true, location: { isActive: true } },
+    where: {
+      id: facilityId,
+      isActive: true,
+      // A facility awaiting (or refused) admin approval is not bookable.
+      approvalStatus: "APPROVED",
+      location: { isActive: true },
+    },
     include: {
       sports: true,
       location: {

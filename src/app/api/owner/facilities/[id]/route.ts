@@ -52,11 +52,25 @@ export async function PATCH(request: Request, context: RouteContext) {
     const data: {
       price?: number;
       isActive?: boolean;
+      approvalStatus?: "PENDING" | "APPROVED" | "REJECTED";
+      rejectionReason?: string | null;
+      approvedAt?: Date | null;
+      approvedById?: string | null;
       sports?: { set: { id: string }[] };
     } = {};
 
     if (body.price !== undefined) {
       data.price = body.price;
+    }
+
+    // Editing a rejected facility resubmits it for review. An already-approved
+    // facility keeps its approval when the owner tweaks price or sports.
+    let resubmitted = false;
+
+    if (facility.approvalStatus === "REJECTED") {
+      data.approvalStatus = "PENDING";
+      data.rejectionReason = null;
+      resubmitted = true;
     }
 
     if (body.sportIds !== undefined) {
@@ -119,6 +133,16 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
+    if (resubmitted) {
+      await audit({
+        actorId: currentUser.id,
+        action: "facility.resubmit",
+        entityType: "Facility",
+        entityId: facility.id,
+        request,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       facility: {
@@ -126,6 +150,9 @@ export async function PATCH(request: Request, context: RouteContext) {
         name: updated.name,
         price: updated.price.toString(),
         isActive: updated.isActive,
+        approvalStatus: updated.approvalStatus,
+        rejectionReason: updated.rejectionReason,
+        resubmitted,
         sports: updated.sports,
       },
       cancelledBookings,

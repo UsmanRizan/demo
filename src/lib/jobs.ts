@@ -1,4 +1,5 @@
 import { sweepExpiredHolds } from "@/lib/bookings";
+import { generateWeeklyInvoices, isSunday } from "@/lib/invoices";
 import { logError } from "@/lib/monitoring";
 import { notifyBookingReminder } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
@@ -78,6 +79,24 @@ export async function cleanupStaleRecords() {
   return { otps: otps.count, rateLimits: rateLimits.count };
 }
 
+/**
+ * Turn each completed Sunday -> Saturday week into an invoice per owner.
+ *
+ * Runs every cron tick but only does work once a week, on and after Sunday,
+ * so a missed run is caught up automatically the next time it succeeds.
+ */
+export async function issueWeeklyInvoices() {
+  const now = new Date();
+
+  if (!isSunday(now)) {
+    return { skipped: true, reason: "not-sunday" } as const;
+  }
+
+  const result = await generateWeeklyInvoices();
+
+  return { skipped: false, ...result } as const;
+}
+
 export async function runScheduledJobs() {
   const results: Record<string, unknown> = {};
 
@@ -85,6 +104,7 @@ export async function runScheduledJobs() {
     ["expiredHolds", () => sweepExpiredHolds()],
     ["completed", completeFinishedBookings],
     ["reminders", sendBookingReminders],
+    ["weeklyInvoices", issueWeeklyInvoices],
     ["cleanup", cleanupStaleRecords],
   ];
 

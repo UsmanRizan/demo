@@ -22,6 +22,15 @@ model User {
   // Set when the account is deleted; personal fields are anonymised at the same time.
   deletedAt      DateTime?
 
+  // Payout profile used for weekly invoice payouts. The account number is
+  // AES-256-GCM ciphertext (see src/lib/crypto.ts); last4 is kept in plaintext
+  // so the owner can confirm which account is on file without decrypting it.
+  payoutBankName      String?
+  payoutAccountNumber String?
+  payoutAccountLast4  String?
+  payoutAccountHolder String?
+  payoutUpdatedAt     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -30,6 +39,7 @@ model User {
   address            UserAddress?
   wallet             Wallet?
   withdrawalRequests WithdrawalRequest[]
+  weeklyInvoices     WeeklyInvoice[]
   staffLocations     LocationStaff[]
   reviews            Review[]
   favorites          Favorite[]
@@ -77,15 +87,23 @@ model Location {
 }
 
 model Facility {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   locationId  String
   name        String
   description String?
   imageUrl    String?
-  price       Decimal  @db.Decimal(10, 2)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  price       Decimal @db.Decimal(10, 2)
+  isActive    Boolean @default(true)
+
+  // A facility must be approved by an admin before players can see or book it.
+  // Editing a rejected facility resubmits it (back to PENDING).
+  approvalStatus  FacilityApprovalStatus @default(PENDING)
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   location Location        @relation(fields: [locationId], references: [id])
   sports   Sport[]
@@ -94,6 +112,13 @@ model Facility {
   reviews  Review[]
 
   @@index([locationId])
+  @@index([approvalStatus])
+}
+
+enum FacilityApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model Availability {
@@ -321,6 +346,67 @@ model WalletTransaction {
   @@index([withdrawalRequestId])
 }
 
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  VOID
+}
+
+/**
+ * A week's worth of owner earnings, generated automatically for the Sunday ->
+ * Saturday period and settled by an admin (see src/lib/invoices.ts).
+ */
+model WeeklyInvoice {
+  id      String @id @default(cuid())
+  ownerId String
+
+  // Sunday 00:00:00.000 through to Saturday 23:59:59.999, Asia/Colombo.
+  // Unique with ownerId so regeneration for the same week is idempotent.
+  periodStart DateTime
+  periodEnd   DateTime
+
+  status       InvoiceStatus @default(ISSUED)
+  bookingCount Int           @default(0)
+  grossAmount  Decimal       @db.Decimal(12, 2)
+  amount       Decimal       @db.Decimal(12, 2)
+
+  // Snapshot of the payout profile when the invoice was issued, so a later
+  // profile change cannot rewrite the instructions for an unpaid invoice.
+  // accountNumber is AES-256-GCM ciphertext (see src/lib/crypto.ts).
+  bankName      String
+  accountNumber String
+  accountLast4  String?
+  accountHolder String
+
+  note       String?
+  paidById   String?
+  paidAt     DateTime?
+  paymentRef String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User                @relation(fields: [ownerId], references: [id])
+  lines WeeklyInvoiceLine[]
+
+  @@unique([ownerId, periodStart])
+  @@index([status])
+  @@index([periodStart])
+}
+
+model WeeklyInvoiceLine {
+  id        String  @id @default(cuid())
+  invoiceId String
+  bookingId String
+  amount    Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  invoice WeeklyInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, bookingId])
+}
+
 enum WalletTransactionCategory {
   BOOKING_PAYMENT
   BOOKING_REFUND
@@ -328,6 +414,7 @@ enum WalletTransactionCategory {
   EARNING_REVERSAL
   WITHDRAWAL
   WITHDRAWAL_REVERSAL
+  INVOICE_PAYMENT
   ADJUSTMENT
 }
 

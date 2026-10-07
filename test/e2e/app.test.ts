@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { creditOwnerEarning } from "@/lib/bookings";
 import { decryptSecret, isEncrypted } from "@/lib/crypto";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -34,6 +35,8 @@ const ids = {
   facility2Id: "",
 };
 
+/** Facilities created inside individual tests, for teardown. */
+const extraFacilityIds: string[] = [];
 type BookingResponse = {
   bookingId: string;
   bookingIds: string[];
@@ -140,6 +143,9 @@ beforeAll(async () => {
           locationId: location.id,
           name,
           price: 1000,
+          // Facilities are hidden from players until an admin approves them,
+          // so the shared fixtures are created already approved.
+          approvalStatus: "APPROVED",
           sports: { connect: { id: sport.id } },
         },
       }),
@@ -153,7 +159,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const facilityIds = [ids.facilityId, ids.facility2Id].filter(Boolean);
+  const facilityIds = [
+    ids.facilityId,
+    ids.facility2Id,
+    ...extraFacilityIds,
+  ].filter(Boolean);
   const userIds = (
     await prisma.user.findMany({
       where: { OR: [{ id: { in: ids.users } }, { phone: { startsWith: "deleted:" }, id: { in: ids.users } }] },
@@ -164,13 +174,27 @@ afterAll(async () => {
 
   await prisma.review.deleteMany({ where: { OR: [{ facilityId: { in: facilityIds } }, { playerId: { in: allUserIds } }] } });
   await prisma.booking.deleteMany({ where: { OR: [{ facilityId: { in: facilityIds } }, { playerId: { in: allUserIds } }] } });
+  // Weekly invoice lines reference bookings, and invoices reference owners.
+  const invoices = await prisma.weeklyInvoice.findMany({
+    where: { ownerId: { in: allUserIds } },
+    select: { id: true },
+  });
+  const invoiceIds = invoices.map((i) => i.id);
+  if (invoiceIds.length) {
+    await prisma.weeklyInvoiceLine.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+    await prisma.weeklyInvoice.deleteMany({ where: { id: { in: invoiceIds } } });
+  }
   await prisma.withdrawalRequest.deleteMany({ where: { ownerId: { in: allUserIds } } });
   await prisma.notification.deleteMany({ where: { userId: { in: allUserIds } } });
   await prisma.auditLog.deleteMany({
     where: {
       OR: [
         { actorId: { in: allUserIds } },
-        { entityId: { in: [...allUserIds, ids.locationId, ...facilityIds] } },
+        {
+          entityId: {
+            in: [...allUserIds, ids.locationId, ...facilityIds, ...invoiceIds],
+          },
+        },
       ],
     },
   });
@@ -1048,6 +1072,387 @@ describe("court search and booking from the venue page", () => {
     );
     expect(page.status).toBe(200);
     expect(page.text).toContain("Book a court");
+  });
+});
+
+describe("facility approval gate", () => {
+  const date = colomboDate(60);
+
+  type SlotsResponse = {
+    facilities: { id: string; slots: { startTime: string; available: boolean }[] }[];
+  };
+
+  type FacilityRow = {
+    id: string;
+    approvalStatus: string;
+    name: string;
+    rejectionReason: string | null;
+  };
+
+  async function createPendingFacility(name: string) {
+    const created = await owner.post<{ facility: FacilityRow }>("/api/owner/facilities", {
+      locationId: ids.locationId,
+      sportIds: [ids.sportId],
+      name,
+      price: 1200,
+    });
+
+    expect(created.status).toBe(201);
+    // New facilities are always held for review.
+    expect(created.data.facility.approvalStatus).toBe("PENDING");
+
+    extraFacilityIds.push(created.data.facility.id);
+
+    return created.data.facility;
+  }
+
+  it("a new facility is PENDING, invisible to players and not bookable", async () => {
+    const facility = await createPendingFacility(`Pending Court ${suffix}`);
+
+    const venue = await new Client().get<SlotsResponse>(
+      `/api/locations/${ids.locationId}/slots?date=${date}`,
+    );
+    expect(venue.data.facilities.map((f) => f.id)).not.toContain(facility.id);
+
+    const search = await new Client().get<{ facilities: { id: string }[] }>(
+      `/api/player/search?sportId=${ids.sportId}&date=${date}&period=night`,
+    );
+    expect(search.data.facilities.map((f) => f.id)).not.toContain(facility.id);
+
+    const attempt = await book(playerA, date, 6, 7, {}, facility.id);
+    expect(attempt.status).toBe(404);
+
+    const page = await new Client().get(`/locations/${ids.locationId}`);
+    expect(page.text).not.toContain(facility.name);
+  });
+
+  it("only admins can approve, and approval makes it bookable", async () => {
+    const facility = await createPendingFacility(`Approved Court ${suffix}`);
+
+    expect((await playerA.patch(`/api/admin/facilities/${facility.id}`, { action: "approve" })).status).toBe(403);
+    expect((await owner.patch(`/api/admin/facilities/${facility.id}`, { action: "approve" })).status).toBe(403);
+
+    const approved = await admin.patch<{ facility: FacilityRow }>(
+      `/api/admin/facilities/${facility.id}`,
+      { action: "approve" },
+    );
+    expect(approved.status).toBe(200);
+    expect(approved.data.facility.approvalStatus).toBe("APPROVED");
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: "facility.approve", entityId: facility.id },
+    });
+    expect(audit?.actorId).toBe(await userId(admin));
+
+    const venue = await new Client().get<SlotsResponse>(
+      `/api/locations/${ids.locationId}/slots?date=${date}`,
+    );
+    expect(venue.data.facilities.map((f) => f.id)).toContain(facility.id);
+
+    const held = await book(playerA, date, 6, 7, {}, facility.id);
+    expect(held.status).toBe(200);
+    await playerA.post("/api/bookings/cancel", { bookingId: held.data.bookingId });
+
+    // Approving twice is refused rather than silently re-running.
+    expect((await admin.patch(`/api/admin/facilities/${facility.id}`, { action: "approve" })).status).toBe(409);
+  });
+
+  it("rejecting requires a reason, hides the court, and lets the owner resubmit", async () => {
+    const facility = await createPendingFacility(`Rejected Court ${suffix}`);
+
+    const noReason = await admin.patch(`/api/admin/facilities/${facility.id}`, { action: "reject" });
+    expect(noReason.status).toBe(400);
+
+    const rejected = await admin.patch<{ facility: FacilityRow }>(
+      `/api/admin/facilities/${facility.id}`,
+      { action: "reject", reason: "Photo is too dark to judge the court" },
+    );
+    expect(rejected.status).toBe(200);
+    expect(rejected.data.facility.approvalStatus).toBe("REJECTED");
+    expect(rejected.data.facility.rejectionReason).toBe("Photo is too dark to judge the court");
+
+    // Still hidden while rejected.
+    expect((await book(playerB, date, 6, 7, {}, facility.id)).status).toBe(404);
+
+    // Editing resubmits it for review.
+    const resubmitted = await owner.patch<{ facility: { approvalStatus: string; rejectionReason: string | null } }>(
+      `/api/owner/facilities/${facility.id}`,
+      { price: 1500 },
+    );
+    expect(resubmitted.status).toBe(200);
+    expect(resubmitted.data.facility.approvalStatus).toBe("PENDING");
+    expect(resubmitted.data.facility.rejectionReason).toBeNull();
+
+    const review = await prisma.auditLog.findFirst({
+      where: { action: "facility.resubmit", entityId: facility.id },
+    });
+    expect(review).toBeTruthy();
+
+    const queue = await admin.get<{
+      counts: { PENDING: number };
+      facilities: { id: string }[];
+    }>("/api/admin/facilities?status=PENDING");
+    expect(queue.status).toBe(200);
+    expect(queue.data.facilities.map((f) => f.id)).toContain(facility.id);
+
+    // Clean up so the queue assertions of other runs stay stable.
+    await prisma.facility.deleteMany({ where: { id: facility.id } });
+  });
+
+  it("will not approve a facility that picked up bookings while hidden", async () => {
+    const facility = await createPendingFacility(`Stale Court ${suffix}`);
+
+    await prisma.booking.create({
+      data: {
+        playerId: await userId(playerB),
+        facilityId: facility.id,
+        startAt: new Date(`${date}T07:00:00+05:30`),
+        endAt: new Date(`${date}T08:00:00+05:30`),
+        totalPrice: 1320,
+        ownerAmount: 1200,
+        status: "CONFIRMED",
+        paymentStatus: "PAID",
+      },
+    });
+
+    const response = await admin.patch(`/api/admin/facilities/${facility.id}`, { action: "approve" });
+    expect(response.status).toBe(409);
+    expect(String(response.data.error)).toMatch(/upcoming bookings/i);
+
+    await prisma.booking.deleteMany({ where: { facilityId: facility.id } });
+    await prisma.facility.deleteMany({ where: { id: facility.id } });
+  });
+});
+
+describe("weekly invoices", () => {
+  const ownerId = () => userId(owner);
+
+  /**
+   * Colombo Sunday 00:00 that is `weeksAgo` weeks before the current one.
+   * Must match src/lib/invoices.ts startOfWeek(): the UTC instant of Colombo
+   * midnight, which is 18:30/19:30 UTC the previous day.
+   */
+  function sundayStart(weeksAgo: number) {
+    const shifted = new Date(Date.now() + 5.5 * 3_600_000);
+    const utcMidnight = Date.UTC(
+      shifted.getUTCFullYear(),
+      shifted.getUTCMonth(),
+      shifted.getUTCDate() - shifted.getUTCDay(),
+    );
+
+    return new Date(utcMidnight - 5.5 * 3_600_000 - weeksAgo * 7 * 86_400_000);
+  }
+
+  /** Record a settled booking's earning inside a given week. */
+  async function seedEarning(
+    weekStart: Date,
+    amount: number,
+    bookingId?: string,
+  ) {
+    const booking =
+      bookingId ??
+      (
+        await prisma.booking.create({
+          data: {
+            playerId: await userId(playerA),
+            facilityId: ids.facilityId,
+            startAt: new Date(weekStart.getTime() + 10 * 3_600_000),
+            endAt: new Date(weekStart.getTime() + 11 * 3_600_000),
+            totalPrice: amount,
+            ownerAmount: amount,
+            status: "COMPLETED",
+            paymentStatus: "PAID",
+          },
+        })
+      ).id;
+
+    // Credit through the real ledger path so the wallet balance and the
+    // transaction agree, then backdate the entry into the target week.
+    await prisma.$transaction((tx) =>
+      creditOwnerEarning(tx as never, {
+        id: booking,
+        ownerAmount: amount,
+        totalPrice: amount,
+      }),
+    );
+
+    await prisma.walletTransaction.updateMany({
+      where: { category: "BOOKING_EARNING", bookingId: booking },
+      data: { createdAt: new Date(weekStart.getTime() + 2 * 3_600_000) },
+    });
+
+    return booking;
+  }
+
+  async function setPayoutProfile() {
+    const response = await owner.post("/api/owner/payout", {
+      bankName: "Test Bank",
+      accountNumber: "1234567890",
+      accountHolderName: "Test Owner",
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.accountLast4).toBe("7890");
+  }
+
+  it("stores the account number encrypted and never echoes it back", async () => {
+    await setPayoutProfile();
+
+    const row = await prisma.user.findUniqueOrThrow({
+      where: { id: await ownerId() },
+      select: { payoutAccountNumber: true, payoutAccountLast4: true },
+    });
+
+    expect(row.payoutAccountNumber).not.toContain("1234567890");
+    expect(row.payoutAccountLast4).toBe("7890");
+
+    const read = await owner.get("/api/owner/payout");
+    expect(read.status).toBe(200);
+    expect(read.data.accountLast4).toBe("7890");
+    expect(read.data.complete).toBe(true);
+    expect(JSON.stringify(read.data)).not.toContain("1234567890");
+  });
+
+  it("totals a completed week into one invoice per owner, idempotently", async () => {
+    await setPayoutProfile();
+    const weekStart = sundayStart(2);
+
+    await seedEarning(weekStart, 1000);
+    await seedEarning(weekStart, 500);
+    await seedEarning(sundayStart(1), 250); // a different week
+
+    const generated = await admin.post<{ issued: number }>("/api/admin/invoices", {});
+    expect(generated.status).toBe(200);
+    expect(generated.data.issued).toBeGreaterThanOrEqual(2);
+
+    const invoices = await prisma.weeklyInvoice.findMany({
+      where: { ownerId: await ownerId(), periodStart: weekStart },
+    });
+    expect(invoices).toHaveLength(1);
+    expect(Number(invoices[0].amount)).toBe(1500);
+    expect(invoices[0].bookingCount).toBe(2);
+    expect(invoices[0].status).toBe("ISSUED");
+    expect(invoices[0].bankName).toBe("Test Bank");
+    expect(invoices[0].accountLast4).toBe("7890");
+
+    // Running generation again must not duplicate or change the invoice.
+    const again = await admin.post("/api/admin/invoices", {});
+    expect(again.status).toBe(200);
+    expect(
+      await prisma.weeklyInvoice.count({
+        where: { ownerId: await ownerId(), periodStart: weekStart },
+      }),
+    ).toBe(1);
+  });
+
+  it("only admins can list and pay invoices", async () => {
+    await setPayoutProfile();
+    const weekStart = sundayStart(3);
+    await seedEarning(weekStart, 900);
+
+    await admin.post("/api/admin/invoices", {});
+
+    const list = await admin.get<{
+      invoices: { id: string; owner: { id: string } }[];
+    }>("/api/admin/invoices?status=ISSUED");
+    expect(list.status).toBe(200);
+    const me = await ownerId();
+    const invoice = list.data.invoices.find((i) => i.owner.id === me);
+    expect(invoice).toBeTruthy();
+
+    expect((await owner.get("/api/admin/invoices")).status).toBe(403);
+    expect((await playerA.get("/api/admin/invoices")).status).toBe(403);
+    expect((await owner.patch(`/api/admin/invoices/${invoice!.id}`, {})).status).toBe(403);
+  });
+
+  it("paying debits the wallet exactly once and is not repeatable", async () => {
+    await setPayoutProfile();
+    const weekStart = sundayStart(4);
+    await seedEarning(weekStart, 1200);
+
+    await admin.post("/api/admin/invoices", {});
+
+    const row = await prisma.weeklyInvoice.findFirstOrThrow({
+      where: { ownerId: await ownerId(), periodStart: weekStart },
+    });
+
+    const walletBefore = await walletBalance(await ownerId());
+    expect(walletBefore).toBeGreaterThanOrEqual(1200);
+
+    const paid = await admin.patch<{ invoice: { status: string } }>(
+      `/api/admin/invoices/${row.id}`,
+      { paymentRef: `e2e-${suffix}` },
+    );
+    expect(paid.status).toBe(200);
+    expect(paid.data.invoice.status).toBe("PAID");
+
+    const walletAfter = await walletBalance(await ownerId());
+    expect(walletAfter).toBe(walletBefore - 1200);
+
+    // The debit is ledgered, not just a balance tweak.
+    const debit = await prisma.walletTransaction.findFirst({
+      where: {
+        wallet: { userId: await ownerId() },
+        category: "INVOICE_PAYMENT",
+        createdAt: { gte: new Date(Date.now() - 5 * 60_000) },
+      },
+    });
+    expect(Number(debit?.amount)).toBe(1200);
+
+    // Paying twice is refused, and does not double-debit.
+    const again = await admin.patch(`/api/admin/invoices/${row.id}`, {});
+    expect(again.status).toBe(409);
+    expect(await walletBalance(await ownerId())).toBe(walletAfter);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: "invoice.pay", entityId: row.id },
+    });
+    expect(audit?.actorId).toBe(await userId(admin));
+  });
+
+  it("pay-all settles every issued invoice and reports the ones it cannot", async () => {
+    await setPayoutProfile();
+    await seedEarning(sundayStart(5), 700);
+    await seedEarning(sundayStart(6), 800);
+    await admin.post("/api/admin/invoices", {});
+
+    const me = await ownerId();
+    const before = await walletBalance(me);
+
+    // pay-all settles everything currently awaiting payout, not just the
+    // invoices this test created, so measure the batch from the queue itself.
+    const queued = await prisma.weeklyInvoice.findMany({
+      where: { ownerId: me, status: "ISSUED" },
+      select: { id: true, amount: true },
+    });
+    expect(queued.length).toBeGreaterThanOrEqual(2);
+    const queuedTotal = queued.reduce((s, i) => s + Number(i.amount), 0);
+    expect(queuedTotal).toBeLessThanOrEqual(before);
+
+    const result = await admin.post<{ paid: number; failed: unknown[] }>(
+      "/api/admin/invoices/pay-all",
+      { paymentRef: `batch-${suffix}` },
+    );
+    expect(result.status).toBe(200);
+    expect(result.data.paid).toBe(queued.length);
+    expect(result.data.failed).toEqual([]);
+
+    expect(await walletBalance(me)).toBe(before - queuedTotal);
+
+    // Nothing is left awaiting payout for this owner.
+    const left = await prisma.weeklyInvoice.count({
+      where: { ownerId: me, status: "ISSUED" },
+    });
+    expect(left).toBe(0);
+  });
+
+  it("owners cannot request a manual withdrawal anymore", async () => {
+    const response = await owner.post("/api/owner/wallet/withdraw", {
+      amount: 500,
+      bankName: "Test Bank",
+      accountNumber: "1234567890",
+      accountHolderName: "Test Owner",
+    });
+    expect(response.status).toBe(410);
   });
 });
 

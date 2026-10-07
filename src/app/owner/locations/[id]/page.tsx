@@ -174,11 +174,46 @@ export default async function LocationPage({ params }: PageProps) {
                     <p className="mt-1 text-sm text-gray-500">
                       {facility.sports.map((s) => `${getSportIcon(s.name)} ${s.name}`).join(", ")}
                     </p>
+
+                    {facility.approvalStatus === "PENDING" && (
+                      <p className="mt-3 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+                        Awaiting admin approval — players can&apos;t see or book
+                        this facility yet.
+                      </p>
+                    )}
+
+                    {facility.approvalStatus === "REJECTED" && (
+                      <p className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-800">
+                        Not approved
+                        {facility.rejectionReason
+                          ? `: ${facility.rejectionReason}`
+                          : "."}{" "}
+                        Update the details and save to resubmit for review.
+                      </p>
+                    )}
                   </div>
 
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
-                    {facility.isActive ? "Active" : "Inactive"}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        facility.approvalStatus === "APPROVED"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : facility.approvalStatus === "PENDING"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {facility.approvalStatus === "APPROVED"
+                        ? "Approved"
+                        : facility.approvalStatus === "PENDING"
+                          ? "Pending approval"
+                          : "Rejected"}
+                    </span>
+
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
+                      {facility.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                 </div>
 
                 {facility.description && (

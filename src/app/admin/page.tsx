@@ -7,11 +7,13 @@ import { prisma } from "@/lib/prisma";
 export default async function AdminDashboard() {
   const user = await requireAdmin();
 
-  const [totalUsers, totalSports, totalBookings] = await Promise.all([
-    prisma.user.count(),
-    prisma.sport.count(),
-    prisma.booking.count(),
-  ]);
+  const [totalUsers, totalSports, totalBookings, pendingFacilities] =
+    await Promise.all([
+      prisma.user.count(),
+      prisma.sport.count(),
+      prisma.booking.count(),
+      prisma.facility.count({ where: { approvalStatus: "PENDING" } }),
+    ]);
 
   return (
     <main className="min-h-screen bg-white">
@@ -25,7 +27,7 @@ export default async function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="border-[2px] border-black bg-white p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -67,6 +69,25 @@ export default async function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          <a
+            href="/admin/facilities"
+            className="group border-[2px] border-black bg-white p-5 transition-all hover:bg-black hover:text-white"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 uppercase font-bold group-hover:text-gray-400">
+                  Pending Approvals
+                </p>
+                <p className="mt-1 text-2xl font-bold">{pendingFacilities}</p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center border-[2px] border-black bg-black text-white transition-colors group-hover:bg-white group-hover:text-black">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="square" strokeLinejoin="miter" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </a>
         </div>
 
         {/* Quick Actions */}

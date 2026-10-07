@@ -82,18 +82,21 @@ export default function Header({ user }: HeaderProps) {
             { href: "/owner", label: "Dashboard" },
             { href: "/owner/bookings", label: "Bookings" },
             { href: "/owner/earnings", label: "Earnings" },
+            { href: "/owner/invoices", label: "Invoices" },
           ]
         : user.role === "STAFF"
           ? [
               { href: "/staff", label: "Dashboard" },
             ]
-          : [
-              { href: "/admin", label: "Dashboard" },
-              { href: "/admin/users", label: "Users" },
-              { href: "/admin/sports", label: "Sports" },
-              { href: "/admin/withdrawals", label: "Withdrawals" },
-              { href: "/admin/audit", label: "Audit Log" },
-            ]
+: [
+            { href: "/admin", label: "Dashboard" },
+            { href: "/admin/users", label: "Users" },
+            { href: "/admin/sports", label: "Sports" },
+            { href: "/admin/facilities", label: "Facilities" },
+            { href: "/admin/invoices", label: "Invoices" },
+            { href: "/admin/withdrawals", label: "Withdrawals" },
+            { href: "/admin/audit", label: "Audit Log" },
+          ]
     : [];
 
   return (

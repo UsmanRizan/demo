@@ -118,17 +118,9 @@ function filterByPeriod(bookings: Booking[], period: Period): Booking[] {
 
 export default function EarningsClient({ bookings, wallet: initialWallet, withdrawals: initialWithdrawals, venueCash }: EarningsClientProps) {
   const [activePeriod, setActivePeriod] = useState<Period>("all");
-  const [wallet, setWallet] = useState(initialWallet);
-  const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
+  const wallet = initialWallet;
+  const withdrawals = initialWithdrawals;
   const [activeView, setActiveView] = useState<"earnings" | "withdrawals">("earnings");
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountHolderName, setAccountHolderName] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [withdrawError, setWithdrawError] = useState("");
-  const [withdrawSuccess, setWithdrawSuccess] = useState("");
 
   const filteredBookings = useMemo(
     () => filterByPeriod(bookings, activePeriod),
@@ -268,212 +260,16 @@ export default function EarningsClient({ bookings, wallet: initialWallet, withdr
           >
             Export CSV
           </a>
-          <button
-            type="button"
-            onClick={() => {
-              setShowWithdrawModal(true);
-              setWithdrawError("");
-              setWithdrawSuccess("");
-              setWithdrawAmount("");
-              setBankName("");
-              setAccountNumber("");
-              setAccountHolderName("");
-            }}
+<a
+            href="/owner/invoices"
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A1.125 1.125 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
             </svg>
-            Withdraw Funds
-          </button>
+            Weekly Invoices
+          </a>
         </div>
-
-      {/* Withdraw Modal */}
-      {showWithdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Withdraw Funds</h2>
-              <button
-                type="button"
-                onClick={() => setShowWithdrawModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <p className="mb-4 text-sm text-slate-500">
-              Available balance: <span className="font-semibold text-slate-900">{formatCurrency(walletBalance)}</span>
-            </p>
-
-            {withdrawError && (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                {withdrawError}
-              </div>
-            )}
-
-            {withdrawSuccess && (
-              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                {withdrawSuccess}
-              </div>
-            )}
-
-            {!withdrawSuccess && (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setWithdrawError("");
-                  setIsSubmitting(true);
-
-                  const amount = parseFloat(withdrawAmount);
-                  if (isNaN(amount) || amount <= 0) {
-                    setWithdrawError("Please enter a valid amount.");
-                    setIsSubmitting(false);
-                    return;
-                  }
-
-                  if (amount < 100) {
-                    setWithdrawError("Minimum withdrawal amount is Rs. 100.00.");
-                    setIsSubmitting(false);
-                    return;
-                  }
-
-                  if (amount > walletBalance) {
-                    setWithdrawError("Insufficient balance.");
-                    setIsSubmitting(false);
-                    return;
-                  }
-
-                  try {
-                    const response = await fetch("/api/owner/wallet/withdraw", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        amount,
-                        bankName,
-                        accountNumber,
-                        accountHolderName,
-                      }),
-                    });
-
-                    const data = await response.json();
-
-                    if (!response.ok) {
-                      setWithdrawError(data.error || "Failed to process withdrawal.");
-                      return;
-                    }
-
-                    setWithdrawSuccess(data.message);
-                    setWallet((prev) =>
-                      prev
-                        ? { ...prev, balance: data.newBalance }
-                        : { balance: data.newBalance, transactions: [] }
-                    );
-                  } catch {
-                    setWithdrawError("Network error. Please try again.");
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                }}
-              >
-                <div className="space-y-3">
-                  <div>
-                    <label htmlFor="withdraw-amount" className="mb-1 block text-sm font-medium text-slate-700">
-                      Amount (Rs.)
-                    </label>
-                    <input
-                      id="withdraw-amount"
-                      type="number"
-                      min="100"
-                      step="0.01"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="bank-name" className="mb-1 block text-sm font-medium text-slate-700">
-                      Bank Name
-                    </label>
-                    <input
-                      id="bank-name"
-                      type="text"
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      placeholder="e.g. Commercial Bank"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="account-number" className="mb-1 block text-sm font-medium text-slate-700">
-                      Account Number
-                    </label>
-                    <input
-                      id="account-number"
-                      type="text"
-                      value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value)}
-                      placeholder="e.g. 1234567890"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="account-holder" className="mb-1 block text-sm font-medium text-slate-700">
-                      Account Holder Name
-                    </label>
-                    <input
-                      id="account-holder"
-                      type="text"
-                      value={accountHolderName}
-                      onChange={(e) => setAccountHolderName(e.target.value)}
-                      placeholder="e.g. John Doe"
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowWithdrawModal(false)}
-                    className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    {isSubmitting ? "Processing..." : "Withdraw"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {withdrawSuccess && (
-              <button
-                type="button"
-                onClick={() => setShowWithdrawModal(false)}
-                className="mt-2 w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-              >
-                Done
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* View Toggle */}
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1">
@@ -583,7 +379,7 @@ export default function EarningsClient({ bookings, wallet: initialWallet, withdr
                   </p>
                   <p className="text-xs text-slate-500">
                     {formatDate(new Date(tx.createdAt))}
-                    {tx.note && ` · ${tx.note}`}
+                    {tx.note && ` Â· ${tx.note}`}
                   </p>
                 </div>
                 <p
@@ -681,7 +477,7 @@ export default function EarningsClient({ bookings, wallet: initialWallet, withdr
                         </span>
                       </div>
                       <p className="text-xs text-slate-500">
-                        {w.bankName} · {w.accountNumber} · {w.accountHolderName}
+                        {w.bankName} Â· {w.accountNumber} Â· {w.accountHolderName}
                       </p>
                       <p className="mt-0.5 text-xs text-slate-400">
                         {formatDate(new Date(w.createdAt))}

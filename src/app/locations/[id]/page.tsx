@@ -27,7 +27,8 @@ const getLocation = cache(async (id: string) =>
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       availabilities: { where: { isActive: true }, orderBy: { dayOfWeek: "asc" } },
       facilities: {
-        where: { isActive: true },
+        // Unapproved facilities stay hidden from players entirely.
+        where: { isActive: true, approvalStatus: "APPROVED" },
         orderBy: { name: "asc" },
         include: {
           sports: { where: { isActive: true }, select: { id: true, name: true } },

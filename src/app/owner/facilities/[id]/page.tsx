@@ -73,10 +73,27 @@ export default async function FacilityPage({ params }: PageProps) {
               <p className="mt-2 text-gray-600">{facility.location.name}</p>
             </div>
 
-            <div className="flex flex-col items-start gap-3 sm:items-end">
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  facility.approvalStatus === "APPROVED"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : facility.approvalStatus === "PENDING"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-red-100 text-red-700"
+                }`}
+              >
+                {facility.approvalStatus === "APPROVED"
+                  ? "Approved"
+                  : facility.approvalStatus === "PENDING"
+                    ? "Pending approval"
+                    : "Rejected"}
+              </span>
+
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
                 {facility.isActive ? "Active" : "Inactive"}
               </span>
+
               <ActiveToggle
                 endpoint={`/api/owner/facilities/${facility.id}`}
                 isActive={facility.isActive}
@@ -84,6 +101,28 @@ export default async function FacilityPage({ params }: PageProps) {
               />
             </div>
           </div>
+
+          {facility.approvalStatus === "PENDING" && (
+            <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              This facility is waiting for admin approval. Players can&apos;t
+              see or book it until it&apos;s approved.
+            </div>
+          )}
+
+          {facility.approvalStatus === "REJECTED" && (
+            <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+              <p className="font-medium">This facility was not approved.</p>
+
+              {facility.rejectionReason && (
+                <p className="mt-1">{facility.rejectionReason}</p>
+              )}
+
+              <p className="mt-2">
+                Change what&apos;s needed below and save — that resubmits it for
+                review.
+              </p>
+            </div>
+          )}
 
           {facility.imageUrl && (
             <Image
