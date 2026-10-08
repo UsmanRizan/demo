@@ -14,13 +14,31 @@ type RouteContext = {
   }>;
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** Guard against a typo turning into a year-long block. */
+const MAX_RANGE_DAYS = 92;
+
 /** Today's date in Colombo as YYYY-MM-DD. */
 function colomboToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(new Date());
 }
 
-async function findOwnedLocation(id: string, ownerId: string) {
+function findOwnedLocation(id: string, ownerId: string) {
   return prisma.location.findFirst({ where: { id, ownerId } });
+}
+
+/** Inclusive list of YYYY-MM-DD dates from `from` to `to`. */
+function dateRange(from: string, to: string): string[] {
+  const start = createLocalDateTime(from, "00:00");
+  const end = createLocalDateTime(to, "00:00");
+
+  const dates: string[] = [];
+
+  for (let t = start.getTime(); t <= end.getTime(); t += MS_PER_DAY) {
+    dates.push(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(new Date(t)));
+  }
+
+  return dates;
 }
 
 export async function GET(request: Request, context: RouteContext) {
@@ -41,10 +59,22 @@ export async function GET(request: Request, context: RouteContext) {
       locationId: id,
       date: { gte: createLocalDateTime(colomboToday(), "00:00") },
     },
-    orderBy: { date: "asc" },
+    orderBy: [{ date: "asc" }, { facility: { name: "asc" } }],
+    select: {
+      id: true,
+      facilityId: true,
+      date: true,
+      reason: true,
+      facility: { select: { id: true, name: true, imageUrl: true } },
+    },
   });
 
-  return NextResponse.json({ blockedDates });
+  return NextResponse.json({
+    blockedDates: blockedDates.map((row) => ({
+      ...row,
+      date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(row.date),
+    })),
+  });
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -67,25 +97,56 @@ export async function POST(request: Request, context: RouteContext) {
       return parsed.response;
     }
 
-    const { date, reason, cancelExistingBookings } = parsed.data;
+    const { from, to, facilityIds, reason, cancelExistingBookings } = parsed.data;
+    const lastDay = to ?? from;
+    const today = colomboToday();
 
-    if (date < colomboToday()) {
+    if (from < today) {
       return NextResponse.json(
         { error: "Cannot block dates in the past" },
         { status: 400 },
       );
     }
 
-    // Stored as Colombo midnight, matching how search and booking look it up.
-    const dayStart = createLocalDateTime(date, "00:00");
-    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    const dates = dateRange(from, lastDay);
+
+    if (dates.length > MAX_RANGE_DAYS) {
+      return NextResponse.json(
+        { error: `You can block at most ${MAX_RANGE_DAYS} days at a time.` },
+        { status: 400 },
+      );
+    }
+
+    // Only facilities belonging to this venue may be blocked.
+    const facilities = await prisma.facility.findMany({
+      where: { locationId: id, id: { in: facilityIds } },
+      select: { id: true, name: true },
+    });
+
+    if (facilities.length !== facilityIds.length) {
+      return NextResponse.json(
+        { error: "One or more facilities do not belong to this venue." },
+        { status: 400 },
+      );
+    }
+
+    const facilityNameList = facilities.map((f) => f.name).join(", ");
+    const scopeReason =
+      facilities.length === 1 && dates.length === 1
+        ? reason || "Unavailable on this date"
+        : `Unavailable on this date (${facilityNameList})`;
+
+    const rangeStart = createLocalDateTime(dates[0], "00:00");
+    const rangeEnd = new Date(
+      createLocalDateTime(dates[dates.length - 1], "00:00").getTime() + MS_PER_DAY,
+    );
 
     const closure = await handleClosureBookings({
-      scope: { locationId: id },
-      from: dayStart,
-      to: dayEnd,
+      scope: { facilityIds: facilities.map((f) => f.id) },
+      from: rangeStart,
+      to: rangeEnd,
       ownerId: user.id,
-      reason: reason ? `Venue closed: ${reason}` : "Venue closed on this date",
+      reason: scopeReason,
       confirmed: cancelExistingBookings === true,
     });
 
@@ -93,19 +154,27 @@ export async function POST(request: Request, context: RouteContext) {
       return closure.response;
     }
 
-    const blocked = await prisma.blockedDate.upsert({
-      where: { locationId_date: { locationId: id, date: dayStart } },
-      update: { reason: reason || null },
-      create: { locationId: id, date: dayStart, reason: reason || null },
-    });
+    const rows = dates.flatMap((date) =>
+      facilities.map((facility) => ({
+        locationId: id,
+        facilityId: facility.id,
+        date: createLocalDateTime(date, "00:00"),
+        reason: reason || null,
+      })),
+    );
+
+    await prisma.blockedDate.createMany({ data: rows, skipDuplicates: true });
 
     await audit({
       actorId: user.id,
-      action: "location.block_date",
+      action: "location.block_dates",
       entityType: "Location",
       entityId: id,
       metadata: {
-        date,
+        from,
+        to: lastDay,
+        dateCount: dates.length,
+        facilityIds: facilities.map((f) => f.id),
         reason: reason ?? null,
         cancelledBookings: closure.cancelled,
         refunded: closure.refunded,
@@ -114,14 +183,17 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     return NextResponse.json({
-      blockedDate: blocked,
+      success: true,
+      blocked: rows.length,
+      dates: dates.length,
+      facilities: facilities.map((f) => ({ id: f.id, name: f.name })),
       cancelledBookings: closure.cancelled,
       refunded: closure.refunded.toFixed(2),
     });
   } catch (error) {
-    logError("Block date error:", error);
+    logError("Block dates error:", error);
 
-    return NextResponse.json({ error: "Failed to block date" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to block dates" }, { status: 500 });
   }
 }
 

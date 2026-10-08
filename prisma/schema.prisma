@@ -105,11 +105,12 @@ model Facility {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  location Location        @relation(fields: [locationId], references: [id])
-  sports   Sport[]
-  bookings Booking[]
-  images   FacilityImage[]
-  reviews  Review[]
+  location     Location        @relation(fields: [locationId], references: [id])
+  sports       Sport[]
+  bookings     Booking[]
+  images       FacilityImage[]
+  blockedDates BlockedDate[]
+  reviews      Review[]
 
   @@index([locationId])
   @@index([approvalStatus])
@@ -148,14 +149,20 @@ model Availability {
 model BlockedDate {
   id         String   @id @default(cuid())
   locationId String
+  // Blocking is per facility. Closing the whole venue is stored as one row per
+  // facility, which keeps a single normal unique constraint instead of a
+  // partial index Postgres would need but Prisma cannot express.
+  facilityId String
   date       DateTime
   reason     String?
   createdAt  DateTime @default(now())
 
   location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
 
-  @@unique([locationId, date])
+  @@unique([facilityId, date])
   @@index([locationId])
+  @@index([facilityId])
   @@index([date])
 }
 

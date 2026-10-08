@@ -20,7 +20,7 @@ export async function handleClosureBookings({
   reason,
   confirmed,
 }: {
-  scope: { locationId: string } | { facilityId: string };
+  scope: { locationId: string } | { facilityId: string } | { facilityIds: string[] };
   from: Date;
   to?: Date;
   ownerId: string;
@@ -30,7 +30,11 @@ export async function handleClosureBookings({
   | { response: NextResponse; cancelled?: never; refunded?: never }
   | { response?: never; cancelled: number; refunded: number }
 > {
-  const affected = await findActiveBookings({ ...scope, from, to });
+  const affected = await findActiveBookings({
+    ...scope,
+    from,
+    to,
+  });
 
   if (affected.length === 0) {
     return { cancelled: 0, refunded: 0 };

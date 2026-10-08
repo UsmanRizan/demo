@@ -119,7 +119,18 @@ export default async function LocationPage({ params }: PageProps) {
               </section>
 
               <section className="mt-8">
-                <BlockedDatesEditor locationId={location.id} />
+                <BlockedDatesEditor
+                  locationId={location.id}
+                  facilities={location.facilities.map((facility) => ({
+                    id: facility.id,
+                    name: facility.name,
+                    imageUrl: facility.imageUrl,
+                    sports: facility.sports.map((sport) => ({
+                      id: sport.id,
+                      name: sport.name,
+                    })),
+                  }))}
+                />
               </section>
 
               <section className="mt-8">

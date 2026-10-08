@@ -207,11 +207,12 @@ export async function getFacilitiesWithSlots({
               isActive: true,
             },
           },
-          blockedDates: {
-            where: { date: dayStart },
-            select: { reason: true },
-          },
         },
+      },
+      // Per facility, so closing one court never hides its neighbours.
+      blockedDates: {
+        where: { date: dayStart },
+        select: { reason: true },
       },
       bookings: {
         where: {
@@ -234,8 +235,8 @@ export async function getFacilitiesWithSlots({
   });
 
   return facilities.map((facility) => {
-    const { availabilities, pricingRules, blockedDates, ...location } = facility.location;
-    const blocked = blockedDates.length > 0;
+    const { availabilities, pricingRules, ...location } = facility.location;
+    const blocked = facility.blockedDates.length > 0;
 
     const slots = buildSlots({
       date,
@@ -266,7 +267,9 @@ export async function getFacilitiesWithSlots({
       imageUrl: facility.imageUrl,
       sports: facility.sports,
       location,
-      blockedReason: blocked ? blockedDates[0].reason ?? "Closed on this date" : null,
+      blockedReason: blocked
+        ? facility.blockedDates[0].reason ?? "Unavailable on this date"
+        : null,
       slots,
       avgSurge: Math.round(avgSurge),
     };

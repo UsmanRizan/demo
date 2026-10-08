@@ -298,14 +298,32 @@ export const facilityApprovalSchema = z.object({
   path: ["reason"],
 });
 
-export const blockDateSchema = z.object({
-  date: z
-    .string({ error: "date is required (YYYY-MM-DD)" })
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be in YYYY-MM-DD format")
-    .refine(isValidDate, "date must be a valid date"),
-  reason: z.string().trim().max(200).nullish(),
-  cancelExistingBookings: z.boolean().optional(),
-});
+/**
+ * Blocking is scoped to specific facilities over one date or a range of dates.
+ * A single day is just `from` with no `to`.
+ */
+export const blockDateSchema = z
+  .object({
+    from: z
+      .string({ error: "from is required (YYYY-MM-DD)" })
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "from must be in YYYY-MM-DD format")
+      .refine(isValidDate, "from must be a valid date"),
+    to: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "to must be in YYYY-MM-DD format")
+      .refine(isValidDate, "to must be a valid date")
+      .nullish(),
+    facilityIds: z
+      .array(z.string().min(1))
+      .min(1, "Choose at least one facility to block")
+      .max(200, "Too many facilities selected"),
+    reason: z.string().trim().max(200).nullish(),
+    cancelExistingBookings: z.boolean().optional(),
+  })
+  .refine((value) => !value.to || value.to >= value.from, {
+    message: "The end date cannot be before the start date",
+    path: ["to"],
+  });
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "Times must use HH:MM format");
 

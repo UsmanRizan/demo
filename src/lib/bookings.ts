@@ -297,7 +297,9 @@ export async function createBookingHolds({
 
   const blocked = await prisma.blockedDate.findMany({
     where: {
-      locationId: facility.locationId,
+      // Scoped to this facility: a block on another court must not stop a
+      // booking here.
+      facilityId: facility.id,
       date: { in: slots.map((s) => createLocalDateTime(s.date, "00:00")) },
     },
     select: { date: true, reason: true },
@@ -306,7 +308,7 @@ export async function createBookingHolds({
   if (blocked.length > 0) {
     const reason = blocked[0].reason ? ` (${blocked[0].reason})` : "";
     throw new BookingError(
-      `The venue is closed on one of the selected dates${reason}.`,
+      `This facility is unavailable on one of the selected dates${reason}.`,
       409,
       "DATE_BLOCKED",
     );
@@ -858,18 +860,26 @@ export async function cancelBooking({
 export async function findActiveBookings({
   locationId,
   facilityId,
+  facilityIds,
   from,
   to,
 }: {
   locationId?: string;
   facilityId?: string;
+  facilityIds?: string[];
   from: Date;
   to?: Date;
 }) {
+  const scoped = facilityIds?.length
+    ? { facilityId: { in: facilityIds } }
+    : facilityId
+      ? { facilityId }
+      : { facility: { locationId } };
+
   return prisma.booking.findMany({
     where: {
       status: { in: ["PENDING", "CONFIRMED"] },
-      ...(facilityId ? { facilityId } : { facility: { locationId } }),
+      ...scoped,
       endAt: { gt: from },
       ...(to ? { startAt: { lt: to } } : {}),
     },
